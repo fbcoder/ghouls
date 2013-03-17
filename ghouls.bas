@@ -1,63 +1,35 @@
 #include once "includes/list.bas"
-
-Const Null = 0
-
-Enum Direction
-    North = 0
-    East = 1
-    South = 2
-    West = 3
-End Enum
+#include once "tilemap.bas"
 
 Enum Mirror
     None = 0
     NE_SW = 1
     NW_SE = 2
-End Enum    
-
-Enum Bool
-    True = 0
-    False = not True
 End Enum
 
-'--------
-' a Tile
-'--------
+' Forward decl. for Area pointers.
+Type AreaPtr as Area Ptr
 
-' Forwarded type decl.
-Type TilePtr as Tile ptr
-
-Type Tile
-    x as integer = 0
-    y as integer = 0
-    mirrorType as Mirror = Mirror.None
-    directionMap(4) as Direction
-    neighbor(4) as TilePtr
-    Declare Sub setDirectionMap( _directionMap() as Direction )
-    Declare Constructor()
-    Declare Sub setMirror( mirrorType as Mirror, _directionMap() as Direction )
-    Declare Function travelThrough( from as Direction ) as TilePtr
+Type TileData
+    private:
+        mirrorType as Mirror = Mirror.None
+        _areaPtr as AreaPtr = Null
+    public:
+        Declare Constructor()
+        Declare Sub setArea( __areaPtr as AreaPtr )
+        Declare Function getArea() as AreaPtr
 End Type
 
-Constructor Tile()
-    Dim defaultDirectionMap(4) as Direction = {Direction.South,Direction.West,Direction.North,Direction.East}
-    setDirectionMap( defaultDirectionMap() )
+Constructor TileData()
 End Constructor
 
-Sub Tile.setDirectionMap( _directionMap() as Direction )
-    for i as integer = 0 to 3
-        directionMap(i) = _directionMap(i)
-    next i    
-End Sub    
-
-Sub Tile.setMirror( _mirrorType as Mirror, _directionMap() as Direction )
-    mirrorTYpe = _mirrorType
-    setDirectionMap( _directionMap() )
+Sub TileData.setArea( __areaPtr as AreaPtr )
+    _areaPtr = __areaPtr
 End Sub
 
-Function Tile.travelThrough ( from as Direction ) as Tile ptr
-    return neighbor(directionMap(from))
-End Function
+Function TileData.getArea() as AreaPtr
+    return _areaPtr
+End Function 
 
 '----------
 ' An area
@@ -66,59 +38,125 @@ Type Area
     private:
         tileList as MyList.list
         maxSize as integer = 0
+        size as integer = 0
         hasMirror as Bool = Bool.False
+        Declare Function getRandomDirection() as Direction
     public:
-        Declare Constructor ( startTile as Tile, maxSize_ as integer )
-        Declare Sub createArea( )
+        Declare Constructor ( startTile as TilePtr, maxSize as integer )
+        Declare Sub createArea( startTile as TilePtr )
+        Declare Sub addTiles( _tile as TilePtr, byref s as Integer )
 End Type
 
-Constructor Area ( startTile as Tile, _maxSize as integer )
+Constructor Area ( startTile as TilePtr, _maxSize as integer )
     maxSize = _maxSize
-    ' add Tiles to the list.
+    addTiles(startTile,1)
 End Constructor
 
-Sub Area.createArea( startTile as Tile
-End Sub
-
-'------------
-' Main Stuff
-'------------
-Dim mapHeight as integer = 4
-Dim mapWidth as integer = 4
-
-Dim map(mapWidth,mapHeight) as Tile
-
-For row as integer = 0 to mapHeight - 1
-    For col as integer = 0 to mapWidth - 1
-        map(col,row).x = col
-        map(col,row).y = row
-        Dim north as TilePtr
-        if row = 0 then 
-            map(col,row).neighbor(Direction.North) = Null
-        else    
-            map(col,row).neighbor(Direction.North) = @map(col, row - 1)
+Sub Area.addTiles( _tile as TilePtr, byref s as Integer )
+    if _tile <> Null and s <= maxSize then
+        Dim _data as TileData Ptr = _tile->getData()
+        if _data->getArea() = Null then
+            tileList.addObject(_tile)
+            _data->setArea(@this)
+        end if            
+        Dim d as Direction = getRandomDirection()
+        if d <> -1 then
+            Dim i as integer = 0
+            While i < 3
+                dim nextTile as TilePtr = _tile->getNeighbor(d)
+                if nextTile <> Null then 
+                        Dim thisData as TileData Ptr = nextTile->getData()
+                        if  thisData->getArea() = Null then
+                            addTiles(nextTile,s+1)
+                        end if    
+                end if    
+                d += 1
+                if d > 3 then 
+                    d = Direction.North
+                end if    
+                i += 1                                   
+            Wend
         end if
-        
-        if col = 0 then
-            map(col,row).neighbor(Direction.West) = Null
-        else        
-            map(col,row).neighbor(Direction.West) = @map(col - 1, row)
-        end if
-        
-        if row = (mapHeight - 1) then
-            map(col,row).neighbor(Direction.South) = Null
-        else
-            map(col,row).neighbor(Direction.South) = @map(col, row + 1)
-        end if
-        
-        if col = (mapWidth - 1) then
-            map(col,row).neighbor(Direction.East) = Null
-        else
-            map(col,row).neighbor(Direction.East) = @map(col + 1, row)
-        end if        
-    Next col
-Next row
+    end if    
+End Sub    
 
-Dim mirrors as integer = 6
+Function Area.getRandomDirection() as Direction
+    Dim r as integer = int(rnd * 4)
+    Select Case r
+        case 0:
+            return Direction.North
+        case 1:
+            return Direction.East
+        case 2:
+            return Direction.South
+        case 3:
+            return Direction.West
+    End Select
+    return -1
+End Function    
 
-System
+'-------------
+' Main
+'-------------
+Dim w as integer = 6
+Dim h as integer = 6
+Dim map as TileMap = TileMap(h,w)
+
+For i as integer = 0 to h - 1
+    For j as integer = 0 to w - 1
+        Dim t as TilePtr = map.getTile(j,i)
+        if t <> Null then
+            t->setData(new TileData)
+        end if
+        locate 1 + i,1 + j
+        print "*"
+        't->debug()
+    Next j
+Next i
+
+'------------------
+' Walk through map
+'------------------
+Dim cRow as integer = 3
+Dim cCol as integer = 3
+Dim cTile as TilePtr = map.getTile(cRow,cCol)
+
+'map.debug()
+'Sleep
+
+Dim k as String
+Do
+    For i as integer = 0 to h - 1
+        For j as integer = 0 to w - 1
+            Dim t as TilePtr = map.getTile(j,i)
+            locate 1 + i,1 + j
+            if t = cTile then                
+                print "@"
+            else
+                print "*"
+            end if    
+        Next j
+    Next i
+    k = inkey
+    Select Case k
+        case "w":
+            'locate 10,1
+            'print cTile->getNeighbor(Direction.North)
+            if cTile->travelThrough(Direction.North) <> null then
+                cTile = cTile->travelThrough(Direction.North)
+            end if    
+        case "d":
+            if cTile->travelThrough(Direction.East) <> null then
+                cTile = cTile->travelThrough(Direction.East)
+            end if    
+        case "s":
+            if cTile->travelThrough(Direction.South) <> null then
+                cTile = cTile->travelThrough(Direction.south)
+            end if            
+        case "a":
+            if cTile->travelThrough(Direction.West) <> null then
+                cTile = cTile->travelThrough(Direction.West)
+            end if            
+    End Select
+    sleep 10,1
+Loop while k <> chr(27)
