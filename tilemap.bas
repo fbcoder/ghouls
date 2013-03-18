@@ -1,3 +1,5 @@
+#include once "includes/bool.bas"
+
 Const Null = 0
 Const DEFAULT_MAPWIDTH = 6
 Const DEFAULT_MAPHEIGHT = 6
@@ -15,17 +17,17 @@ directionNames(Direction.East) = "East"
 directionNames(Direction.South) = "South"
 directionNames(Direction.West) = "West"
 
-Enum Bool
-    True = 0
-    False = not True
-End Enum
+'Enum Bool
+'    True = 0
+'    False = not True
+'End Enum
 
 '--------
 ' a Tile
 '--------
 
 ' Forwarded type decl.
-Type TilePtr as Tile ptr
+' Type TilePtr as Tile ptr
 
 Type Tile
     private:
@@ -33,15 +35,15 @@ Type Tile
         x as integer = 0
         y as integer = 0
         directionMap(4) as Direction
-        neighbor(4) as TilePtr
+        neighbor(4) as Tile Ptr
     public:
         Declare Constructor()
         Declare Sub setDirectionMap( _directionMap() as Direction )
         Declare Sub setData( _dataPtr as Any Ptr )
         Declare Sub setCoords( _x as integer, _y as integer )
-        Declare Sub setNeighbor( _direction as Direction, _tilePtr as TilePtr )
-        Declare Function travelThrough( from as Direction ) as TilePtr
-        Declare Function getNeighbor( _direction as Direction ) as TilePtr
+        Declare Sub setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )
+        Declare Function travelThrough( from as Direction ) as Tile Ptr
+        Declare Function getNeighbor( _direction as Direction ) as Tile Ptr
         Declare Function getData() as Any Ptr
         Declare Sub debug()
 End Type
@@ -62,7 +64,7 @@ Sub Tile.setCoords( _x as Integer, _y as Integer )
     y = _y
 End Sub
 
-Sub Tile.setNeighbor( _direction as Direction, _tilePtr as TilePtr )
+Sub Tile.setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )
     ' prinline for debugging, check the value sent by map constructor
     'print directionNames(_direction) & " -> " & _tilePtr
     neighbor(_direction) = _tilePtr
@@ -76,15 +78,16 @@ Function Tile.getData() as Any Ptr
     return dataPtr
 End Function
 
-Function Tile.travelThrough ( from as Direction ) as TilePtr
+Function Tile.travelThrough ( from as Direction ) as Tile Ptr
     return neighbor(directionMap(from))
 End Function
 
-Function Tile.getNeighbor ( _direction as Direction ) as TilePtr
+Function Tile.getNeighbor ( _direction as Direction ) as Tile Ptr
     return neighbor(_direction)
 End Function
 
 Sub Tile.debug()
+    print "-- Tile --"
     print using "Tile at ##_,##"; x; y
     for i as integer = 0 to 3
         print "Neighbor " & directionNames(i) & " is @" & neighbor(i)
@@ -98,18 +101,17 @@ Type TileMap
     private:
         mapHeight as Integer
         mapWidth as Integer
-        map(DEFAULT_MAPWIDTH,DEFAULT_MAPHEIGHT) as TilePtr
+        map(DEFAULT_MAPWIDTH,DEFAULT_MAPHEIGHT) as Tile Ptr
     public:
         Declare Constructor( _height as Integer, _width as Integer )
         Declare Destructor()
-        Declare Function getTile( col as Integer, row as Integer ) as TilePtr
+        Declare Function getTile( col as Integer, row as Integer ) as Tile Ptr
         Declare Sub debug()
 End Type
 
 Constructor TileMap( _height as Integer, _width as Integer )
     mapWidth = _width
     mapHeight = _height
-    'redim map(mapWidth,mapHeight) as TilePtr
     
     'Create new Tile objects
     for row as integer = 0 to (mapHeight - 1)
@@ -163,14 +165,14 @@ Destructor TileMap()
     next row
 End Destructor
 
-Function TileMap.getTile( col as Integer, row as Integer ) as TilePtr
+Function TileMap.getTile( col as Integer, row as Integer ) as Tile Ptr
     if col >= 0 and col <= (mapWidth - 1) and row >= 0 and row <= (mapHeight - 1) then
         return map(col,row)
     end if
     return Null
 End Function
 
-Sub TileMap.debug()
+Sub TileMap.debug()                
     print "This map contains the following tiles: "
     For row as integer = 0 to (mapHeight - 1)
         For col as integer = 0 to (mapWidth - 1)
