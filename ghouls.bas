@@ -20,19 +20,37 @@ mirrorText(2) = "NW_SE ( \ )"
 
 Type TileData
     private:
+        _tile as Tile Ptr = 0
+        directionMap(4) as Direction
         mirrorType as Mirror = Mirror.None
         areaID as Integer = 0
+        Declare Sub restoreDirectionMap()
     public:
-        Declare Constructor()
+        Declare Constructor( __tile as Tile Ptr )
         Declare Sub setArea( _areaID as integer )
         Declare Function getArea() as integer
         Declare Function getMirror() as Mirror
+        Declare Function travelThrough( from as Direction ) as Direction
         Declare Sub setMirror( _mirrorType as Mirror )
+        Declare Sub removeMirror()
         Declare Sub debug()
 End Type
 
-Constructor TileData()
+Constructor TileData( __tile as Tile Ptr )
+    if __tile <> 0 then
+        _tile = __tile
+    else
+        print "Error: Can't construct TileData without Tile object."
+    end if
+    restoreDirectionMap()
 End Constructor
+
+Sub TileData.restoreDirectionMap()
+    directionMap(Direction.North) = Direction.North
+    directionMap(Direction.East) = Direction.East
+    directionMap(Direction.South) = Direction.South
+    directionMap(Direction.West) = Direction.West
+End Sub
 
 Sub TileData.setArea( _areaID as integer )
     areaID = _areaID
@@ -44,10 +62,31 @@ End Function
 
 Sub TileData.setMirror( _mirrorType as Mirror )
     mirrorType = _mirrorType
+    if mirrorType = Mirror.NE_SW then
+        directionMap(Direction.North) = Direction.East
+        directionMap(Direction.East) = Direction.North
+        directionMap(Direction.South) = Direction.West
+        directionMap(Direction.West) = Direction.South
+    elseif mirrorType = Mirror.NW_SE then
+        directionMap(Direction.North) = Direction.West
+        directionMap(Direction.East) = Direction.South
+        directionMap(Direction.South) = Direction.East
+        directionMap(Direction.West) = Direction.North
+    else
+        print "error: no valid mirrortype to set!: "; _mirrorType
+    end if
+End Sub
+
+Sub TileData.removeMirror()
+    restoreDirectionMap()
 End Sub    
 
 Function TileData.getMirror() as Mirror
     return mirrorType
+End Function
+
+Function TileData.travelThrough ( from as Direction ) as Direction
+    return directionMap(from)
 End Function
 
 Sub TileData.debug()
@@ -188,7 +227,7 @@ For i as integer = 0 to h - 1
     For j as integer = 0 to w - 1
         Dim t as Tile Ptr = map.getTile(j,i)
         if t <> Null then
-            t->setData(new TileData)
+            t->setData(new TileData(t))
         end if
     Next j
 Next i
@@ -217,19 +256,44 @@ Dim areaIterator as MyList.Iterator = MyList.Iterator(areaList)
 Dim areaPtr as Area ptr = areaIterator.getNextObject()
 While areaPtr <> 0    
     areaPtr->placeRandomMirror()
-    areaPtr->debug()
+    'areaPtr->debug()
     areaPtr = areaIterator.getNextObject()    
 Wend
 'Print "done"
-sleep
-cls
 
 '------------------
 ' Walk through map
 '------------------
-Dim cRow as integer = 3
-Dim cCol as integer = 3
-Dim cTile as Tile Ptr = map.getTile(cRow,cCol)
+Screen 18
+
+Dim cDir as Direction = Direction.North
+Dim cTile as Tile Ptr = map.getTile(3,3)
+
+Dim shared xOffset as integer = 10
+Dim shared yOffset as integer = 10
+Dim shared squareSize as integer = 32
+
+Sub drawBox( x as integer, y as integer, c as integer )
+    x = (x * squareSize) + xOffset
+    y = (y * squareSize) + YOffset
+    line(x,y)-(x+squareSize,y+squareSize),c,BF
+End Sub
+
+Sub drawMirror1( x as integer, y as integer )
+    x = (x * squareSize) + xOffset
+    y = (y * squareSize) + YOffset
+    line(x,y)-(x+squareSize,y+squareSize),0,BF
+    line(x,y)-(x+squareSize,y+squareSize),7,B
+    line(x+squareSize,y)-(x,y+squareSize),7
+End Sub
+
+Sub drawMirror2( x as integer, y as integer )    
+    x = (x * squareSize) + xOffset
+    y = (y * squareSize) + YOffset
+    line(x,y)-(x+squareSize,y+squareSize),0,BF
+    line(x,y)-(x+squareSize,y+squareSize),7,B
+    line(x,y)-(x+squareSize,y+squareSize),7
+End Sub
 
 Dim k as String
 Do
@@ -237,21 +301,21 @@ Do
     For i as integer = 0 to h - 1
         For j as integer = 0 to w - 1
             Dim t as Tile Ptr = map.getTile(j,i)
-            locate 3 + i,3 + (j * 4)
+            
             if t = cTile then                
-                print " * "
+                drawBox(j,i,4)
             else
                 dim _data as TileData ptr = t->getData()
                 if _data <> null then
                     Dim m as Mirror = _data->getMirror()
                     if m <> Mirror.None then
                         if m = Mirror.NE_SW then
-                            print " / "
+                            drawMirror1(j,i)
                         else
-                            print " \ "
+                            drawmirror2(j,i)
                         end if
                     else    
-                        print using "###"; _data->getArea()
+                        drawBox(j,i,_data->getArea())
                     end if
                 end if    
             end if    
@@ -261,15 +325,26 @@ Do
     Dim newTile as Tile Ptr = Null
     Select Case k
         case "w":            
-            newTile = cTile->getNeighbor(Direction.North)            
+            cDir = Direction.North
+            'newTile = cTile->getNeighbor(Direction.North)            
         case "d":
-            newTile = cTile->getNeighbor(Direction.East)            
+            cDir = Direction.East
+            'newTile = cTile->getNeighbor(Direction.East)            
         case "s":
-            newTile = cTile->getNeighbor(Direction.south)
+            cDir = Direction.South
+            'newTile = cTile->getNeighbor(Direction.south)
         case "a":            
-            newTile = cTile->getNeighbor(Direction.West)            
+            cDir = Direction.West
+            'newTile = cTile->getNeighbor(Direction.West)
+        case chr(13):
+            dim _data as TileData ptr = cTile->getData()
+            if _data <> 0 then                
+                cDir = _data->travelThrough(cDir)
+                newTile = cTile->getNeighbor(cDir)
+                if newTile <> Null then cTile = newTile
+            end if    
     End Select    
-    if newTile <> Null then cTile = newTile
+
     sleep 10,1
 Loop while k <> chr(27)
 

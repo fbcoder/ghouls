@@ -34,30 +34,19 @@ Type Tile
         dataPtr as Any Ptr = null
         x as integer = 0
         y as integer = 0
-        directionMap(4) as Direction
         neighbor(4) as Tile Ptr
     public:
         Declare Constructor()
-        Declare Sub setDirectionMap( _directionMap() as Direction )
         Declare Sub setData( _dataPtr as Any Ptr )
         Declare Sub setCoords( _x as integer, _y as integer )
-        Declare Sub setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )
-        Declare Function travelThrough( from as Direction ) as Tile Ptr
+        Declare Sub setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )        
         Declare Function getNeighbor( _direction as Direction ) as Tile Ptr
         Declare Function getData() as Any Ptr
         Declare Sub debug()
 End Type
 
 Constructor Tile()
-    Dim defaultDirectionMap(4) as Direction = {Direction.South,Direction.West,Direction.North,Direction.East}
-    setDirectionMap( defaultDirectionMap() )
 End Constructor
-
-Sub Tile.setDirectionMap( _directionMap() as Direction )
-    for i as integer = 0 to 3
-        directionMap(i) = _directionMap(i)
-    next i    
-End Sub
 
 Sub Tile.setCoords( _x as Integer, _y as Integer )
     x = _x
@@ -76,10 +65,6 @@ End Sub
 
 Function Tile.getData() as Any Ptr
     return dataPtr
-End Function
-
-Function Tile.travelThrough ( from as Direction ) as Tile Ptr
-    return neighbor(directionMap(from))
 End Function
 
 Function Tile.getNeighbor ( _direction as Direction ) as Tile Ptr
