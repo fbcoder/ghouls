@@ -10,6 +10,26 @@ Enum Mirror
     NW_SE = 2
 End Enum
 
+Enum TileSprite
+    Border_None = 0
+    Border_N
+    Border_NE
+    Border_NES
+    Border_NESW
+    Border_NEW
+    Border_NS
+    Border_NSW
+    Border_NW
+    Border_E
+    Border_ES
+    Border_ESW
+    Border_EW
+    Border_S
+    Border_SW
+    Border_W
+    NumberOfSprites
+End Enum
+
 Dim Shared mirrorText(3) as String
 mirrorText(0) = "None"
 mirrorText(1) = "NE-SW ( / )"
@@ -28,6 +48,7 @@ Type TileData
         Declare Function getArea() as integer
         Declare Function getMirror() as Mirror
         Declare Function travelThrough( from as Direction ) as Direction
+        Declare Function getBorderType() as TileSprite
         Declare Sub setMirror( _mirrorType as Mirror )
         Declare Sub removeMirror()
         Declare Sub debug()
@@ -82,9 +103,59 @@ Function TileData.getMirror() as Mirror
     return mirrorType
 End Function
 
-Function TileData.travelThrough ( from as Direction ) as Direction
+Function TileData.travelThrough( from as Direction ) as Direction
     return directionMap(from)
 End Function
+
+Function TileData.getBorderType() as TileSprite        
+    Dim border as String = "----"
+    for i as Direction = Direction.North to Direction.West
+        if _tile->getNeighbor(i) <> null then
+            Dim neighborData as TileData ptr
+            neighborData = _tile->getNeighbor(i)->getData()
+            if neighborData->getArea() <> areaID then
+                mid(border,i+1,1)="x"
+            end if
+        else
+            mid(border,i+1,1)="x"
+        end if
+    next i
+    Select Case border
+        Case "----":
+            Return TileSprite.Border_None
+        Case "x---":    
+            Return TileSprite.Border_N
+        Case "xx--":    
+            Return TileSprite.Border_NE
+        Case "xxx-":    
+            Return TileSprite.Border_NES
+        Case "xxxx":    
+            Return TileSprite.Border_NESW
+        Case "xx-x":    
+            Return TileSprite.Border_NEW
+        Case "x-x-":    
+            Return TileSprite.Border_NS
+        Case "x-xx":    
+            Return TileSprite.Border_NSW
+        Case "x--x":    
+            Return TileSprite.Border_NW
+        Case "-x--":    
+            Return TileSprite.Border_E
+        Case "-xx-":    
+            Return TileSprite.Border_ES
+        Case "-xxx":    
+            Return TileSprite.Border_ESW
+        Case "-x-x":    
+            Return TileSprite.Border_EW
+        Case "--x-":    
+            Return TileSprite.Border_S
+        Case "--xx":    
+            Return TileSprite.Border_SW        
+        Case "---x":    
+            Return TileSprite.Border_W
+    End Select
+    Return TileSprite.Border_None
+End Function    
 
 Sub TileData.debug()
     print "-- TileData --"
@@ -214,158 +285,7 @@ End Sub
 '-------------
 ' Main
 '-------------
-Dim w as integer = 6
-Dim h as integer = 6
-Dim map as TileMap = TileMap(h,w)
-Dim areaList as MyList.list
-
-goto initboard
-
-' create TileData for each Tile
-For i as integer = 0 to h - 1
-    For j as integer = 0 to w - 1
-        Dim t as Tile Ptr = map.getTile(j,i)
-        if t <> Null then
-            t->setData(new TileData(t))
-        end if
-    Next j
-Next i
-
-' create Areas
-Dim nextArea as integer = 1
-For i as integer = 0 to h - 1
-    For j as integer = 0 to w - 1
-        Dim tp as Tile Ptr = map.getTile(j,i)
-        Dim dp as TileData Ptr = tp->getData()
-        if dp <> Null then
-            if dp->getArea() = 0 then
-                Dim size as integer = int(rnd * 6) + 1
-                areaList.addObject(new Area(nextArea,tp,size))
-                nextArea += 1
-            end if    
-        end if    
-    Next j
-Next i
-
-'Print "iterating over areas"
-'Print areaList.getSize()
-Print "** AREA LIST **"
-'areaList.debug()
-Dim areaIterator as MyList.Iterator = MyList.Iterator(areaList)
-Dim areaPtr as Area ptr = areaIterator.getNextObject()
-While areaPtr <> 0    
-    areaPtr->placeRandomMirror()
-    'areaPtr->debug()
-    areaPtr = areaIterator.getNextObject()    
-Wend
-'Print "done"
-
-'------------------
-' Walk through map
-'------------------
 Screen 18
-
-
-Dim cDir as Direction = Direction.North
-Dim cTile as Tile Ptr = map.getTile(3,3)
-
-Dim shared xOffset as integer = 10
-Dim shared yOffset as integer = 10
-Dim shared squareSize as integer = 32
-
-Sub drawBox( x as integer, y as integer, c as integer )
-    x = (x * squareSize) + xOffset
-    y = (y * squareSize) + YOffset
-    line(x,y)-(x+squareSize,y+squareSize),c,BF
-End Sub
-
-Sub drawMirror1( x as integer, y as integer )
-    x = (x * squareSize) + xOffset
-    y = (y * squareSize) + YOffset
-    line(x,y)-(x+squareSize,y+squareSize),0,BF
-    line(x,y)-(x+squareSize,y+squareSize),7,B
-    line(x+squareSize,y)-(x,y+squareSize),7
-End Sub
-
-Sub drawMirror2( x as integer, y as integer )    
-    x = (x * squareSize) + xOffset
-    y = (y * squareSize) + YOffset
-    line(x,y)-(x+squareSize,y+squareSize),0,BF
-    line(x,y)-(x+squareSize,y+squareSize),7,B
-    line(x,y)-(x+squareSize,y+squareSize),7
-End Sub
-
-Dim k as String
-Do
-    ' draw the map
-    For i as integer = 0 to h - 1
-        For j as integer = 0 to w - 1
-            Dim t as Tile Ptr = map.getTile(j,i)
-            
-            if t = cTile then                
-                drawBox(j,i,4)
-            else
-                dim _data as TileData ptr = t->getData()
-                if _data <> null then
-                    Dim m as Mirror = _data->getMirror()
-                    if m <> Mirror.None then
-                        if m = Mirror.NE_SW then
-                            drawMirror1(j,i)
-                        else
-                            drawmirror2(j,i)
-                        end if
-                    else    
-                        drawBox(j,i,_data->getArea())
-                    end if
-                end if    
-            end if    
-        Next j
-    Next i
-    k = inkey
-    Dim newTile as Tile Ptr = Null
-    Select Case k
-        case "w":            
-            cDir = Direction.North
-            'newTile = cTile->getNeighbor(Direction.North)            
-        case "d":
-            cDir = Direction.East
-            'newTile = cTile->getNeighbor(Direction.East)            
-        case "s":
-            cDir = Direction.South
-            'newTile = cTile->getNeighbor(Direction.south)
-        case "a":            
-            cDir = Direction.West
-            'newTile = cTile->getNeighbor(Direction.West)
-        case chr(13):
-            dim _data as TileData ptr = cTile->getData()
-            if _data <> 0 then                
-                cDir = _data->travelThrough(cDir)
-                newTile = cTile->getNeighbor(cDir)
-                if newTile <> Null then cTile = newTile
-            end if    
-    End Select    
-
-    sleep 10,1
-Loop while k <> chr(27)
-
-initboard:
-
-Enum TileSprite
-    Border_None = 0
-    Border_North
-    Border_North_East
-    Border_North_South
-    Border_North_West
-    Border_East
-    Border_East_South
-    Border_East_West
-    Border_South
-    Border_South_West
-    Border_West
-    Mirror_NE_SW
-    Mirror_NW_SE
-    NumberOfSprites
-End Enum    
 
 Type Robot
     private:
@@ -391,15 +311,19 @@ Type Board
         _tileMap as TileMap ptr
         boardWidth as integer
         boardHeight as integer
-        tileSprites(TileSprite.NumberOfSprites) as any ptr
-        spriteMap(6,6) as TileSprite
+        tileSprites(TileSprite.NumberOfSprites) as any Ptr
+        spriteMap(6,6) as integer
+        spriteSize as integer = 32
         edges(4) as Tile Ptr Ptr
+        
         ' Internal helpers
         Declare Sub createTileMap()
         Declare Sub createAreas()
+        Declare Sub drawBorder( img as any Ptr, length as integer, n as integer, e as integer, s as integer, w as integer )
         Declare Sub loadSprites()
         Declare Sub drawTile()
         Declare Sub placeRandomMirrors()
+        Declare Sub createSpriteMap()
     public:
         Declare Constructor( _boardWidth as integer, _boardHeight as integer )
         Declare Sub _draw( xOffset as integer, yOffset as integer )
@@ -413,13 +337,69 @@ Constructor Board( _boardWidth as integer, _boardHeight as integer )
 		createAreas()
 		placeRandomMirrors()
 		loadSprites()
+        createSpriteMap()
 	else
 		print "Error: board can be 6 x 6 at most."
 	end if
 End Constructor
 
+Sub Board.drawBorder( img as any Ptr, length as integer, n as integer, e as integer, s as integer, w as integer )
+    Dim ul_x as integer = 0 
+    Dim ul_y as integer = 0
+    Dim ur_x as integer = length - 1
+    Dim ur_y as integer = 0
+    Dim bl_x as integer = 0
+    Dim bl_y as integer = length - 1
+    Dim br_x as integer = length - 1
+    Dim br_y as integer = length - 1
+    if n = 1 then Line img,(ul_x,ul_y)-(ur_x,ur_y),7
+    if e = 1 then Line img,(ur_x,ur_y)-(br_x,br_y),7
+    if s = 1 then Line img,(bl_x,bl_y)-(br_x,br_y),7
+    if w = 1 then Line img,(ul_x,ul_y)-(bl_x,bl_y),7        
+End Sub
+
 Sub Board.loadSprites()
-    'tileSprites(TileSprite.Border_None) = ImageCreate()    
+    For i as integer = TileSprite.Border_None to TileSprite.Border_W
+        Dim floorColor as integer = 3        
+        Dim thisImg as any ptr = imagecreate(spriteSize,spriteSize)            
+        Line thisImg,(0,0)-(spriteSize-1,spriteSize-1),floorColor,BF
+        
+        Select Case i
+            Case TileSprite.Border_None:
+            Case TileSprite.Border_N:
+                drawBorder(thisImg,spriteSize,1,0,0,0)
+            Case TileSprite.Border_NE:
+                drawBorder(thisImg,spriteSize,1,1,0,0)
+            Case TileSprite.Border_NES:
+                drawBorder(thisImg,spriteSize,1,1,1,0)
+            Case TileSprite.Border_NESW:
+                drawBorder(thisImg,spriteSize,1,1,1,1)
+            Case TileSprite.Border_NEW:
+                drawBorder(thisImg,spriteSize,1,1,0,1)
+            Case TileSprite.Border_NS:
+                drawBorder(thisImg,spriteSize,1,0,1,0)
+            Case TileSprite.Border_NSW:
+                drawBorder(thisImg,spriteSize,1,0,1,1)
+            Case TileSprite.Border_NW:
+                drawBorder(thisImg,spriteSize,1,0,0,1)
+            Case TileSprite.Border_E:
+                drawBorder(thisImg,spriteSize,0,1,0,0)
+            Case TileSprite.Border_ES:
+                drawBorder(thisImg,spriteSize,0,1,1,0)
+            Case TileSprite.Border_ESW:
+                drawBorder(thisImg,spriteSize,0,1,1,1)
+            Case TileSprite.Border_EW:
+                drawBorder(thisImg,spriteSize,0,1,0,1)
+            Case TileSprite.Border_S:
+                drawBorder(thisImg,spriteSize,0,0,1,0)
+            Case TileSprite.Border_SW:
+                drawBorder(thisImg,spriteSize,0,0,1,1)
+            Case TileSprite.Border_W:
+                drawBorder(thisImg,spriteSize,0,0,0,1)
+        End Select
+        
+        tileSprites(i) = thisImg
+    Next i
 End Sub
 
 Sub Board.createTileMap()
@@ -434,6 +414,20 @@ Sub Board.createTileMap()
 		Next j
 	Next i
 End Sub
+    
+Sub Board.createSpriteMap()
+    For i as integer = 0 to (boardHeight - 1)
+		For j as integer = 0 to (boardWidth - 1)
+            Dim t as Tile Ptr = _tilemap->getTile(j,i)
+            if t <> 0 then
+                Dim td as TileData Ptr = t->getData()
+                if td <> 0 then
+                    spriteMap(j,i) = td->getBorderType()
+                end if    
+            end if    
+		Next j
+	Next i
+End Sub    
 
 Sub Board.createAreas()
 	if _tileMap <> 0 then
@@ -472,9 +466,14 @@ Sub Board._draw( xOffset as integer, yOffset as integer )
 		for j as integer = 0 to (boardWidth - 1)
 			Dim spriteX as integer = (j * 32) + xOffset
 			Dim spriteY as integer = (i * 32) + yOffset
-			'Put spriteX, SpriteY, spriteMap(j,i), pset				
+			Put (spriteX, SpriteY), tileSprites(spriteMap(j,i))
 		next j
 	next i	
 End Sub
-	
+
+Dim b as Board = Board(6,6)
+Cls
+b._draw(10,10)
+Sleep
+
 System
