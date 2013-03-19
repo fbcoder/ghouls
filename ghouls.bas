@@ -15,9 +15,6 @@ mirrorText(0) = "None"
 mirrorText(1) = "NE-SW ( / )"
 mirrorText(2) = "NW_SE ( \ )"
 
-' Forward decl. for Area pointers.
-'Type AreaPtr as Area Ptr
-
 Type TileData
     private:
         _tile as Tile Ptr = 0
@@ -222,6 +219,8 @@ Dim h as integer = 6
 Dim map as TileMap = TileMap(h,w)
 Dim areaList as MyList.list
 
+goto initboard
+
 ' create TileData for each Tile
 For i as integer = 0 to h - 1
     For j as integer = 0 to w - 1
@@ -265,6 +264,7 @@ Wend
 ' Walk through map
 '------------------
 Screen 18
+
 
 Dim cDir as Direction = Direction.North
 Dim cTile as Tile Ptr = map.getTile(3,3)
@@ -348,6 +348,8 @@ Do
     sleep 10,1
 Loop while k <> chr(27)
 
+initboard:
+
 Enum TileSprite
     Border_None = 0
     Border_North
@@ -385,23 +387,94 @@ End Sub
 
 Type Board
     private:
+        areaList as MyList.List
         _tileMap as TileMap ptr
         boardWidth as integer
         boardHeight as integer
-        tileSprites(TileSprite.NumerOfSprites) as any ptr
+        tileSprites(TileSprite.NumberOfSprites) as any ptr
+        spriteMap(6,6) as TileSprite
         edges(4) as Tile Ptr Ptr
+        ' Internal helpers
+        Declare Sub createTileMap()
+        Declare Sub createAreas()
         Declare Sub loadSprites()
         Declare Sub drawTile()
+        Declare Sub placeRandomMirrors()
     public:
-        Declare Constructor (_boardWidth,_boardHeight)
+        Declare Constructor( _boardWidth as integer, _boardHeight as integer )
+        Declare Sub _draw( xOffset as integer, yOffset as integer )
 End Type
 
-Constructor Board
+Constructor Board( _boardWidth as integer, _boardHeight as integer )
+	if _boardWidth <= 6 and _boardHeight <= 6 then
+		boardWidth = _boardWidth
+		boarDHeight = _boardHeight
+		createTileMap()
+		createAreas()
+		placeRandomMirrors()
+		loadSprites()
+	else
+		print "Error: board can be 6 x 6 at most."
+	end if
 End Constructor
 
-Sub Board.loadSprites
-    tileSprites(TileSprite.Border_None) = ImageCreate()
-    
+Sub Board.loadSprites()
+    'tileSprites(TileSprite.Border_None) = ImageCreate()    
 End Sub
 
+Sub Board.createTileMap()
+	_tilemap = new TileMap(boardWidth,boardHeight)
+	' create TileData for each Tile
+	For i as integer = 0 to (boardHeight - 1)
+		For j as integer = 0 to (boardWidth - 1)
+			Dim t as Tile Ptr = _tilemap->getTile(j,i)
+			if t <> Null then
+				t->setData(new TileData(t))
+			end if
+		Next j
+	Next i
+End Sub
+
+Sub Board.createAreas()
+	if _tileMap <> 0 then
+		Dim nextArea as integer = 1
+		For i as integer = 0 to (boardHeight - 1)
+			For j as integer = 0 to (boardWidth - 1)
+				Dim tp as Tile Ptr = _tileMap->getTile(j,i)
+				Dim dp as TileData Ptr = tp->getData()
+				if dp <> Null then
+					if dp->getArea() = 0 then
+						Dim size as integer = int(rnd * 6) + 1
+						areaList.addObject(new Area(nextArea,tp,size))
+						nextArea += 1
+					end if    
+				end if    
+			Next j
+		Next i
+	end if
+End Sub
+
+Sub Board.placeRandomMirrors()
+	Dim areaIterator as MyList.Iterator = MyList.Iterator(areaList)
+	Dim areaPtr as Area ptr = areaIterator.getNextObject()
+	While areaPtr <> 0    
+		areaPtr->placeRandomMirror()
+		'areaPtr->debug()
+		areaPtr = areaIterator.getNextObject()    
+	Wend
+End Sub
+
+Sub Board.drawTile()
+End Sub
+
+Sub Board._draw( xOffset as integer, yOffset as integer )
+	for i as integer = 0 to (boardHeight - 1)
+		for j as integer = 0 to (boardWidth - 1)
+			Dim spriteX as integer = (j * 32) + xOffset
+			Dim spriteY as integer = (i * 32) + yOffset
+			'Put spriteX, SpriteY, spriteMap(j,i), pset				
+		next j
+	next i	
+End Sub
+	
 System
