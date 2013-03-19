@@ -348,4 +348,60 @@ Do
     sleep 10,1
 Loop while k <> chr(27)
 
+Enum TileSprite
+    Border_None = 0
+    Border_North
+    Border_North_East
+    Border_North_South
+    Border_North_West
+    Border_East
+    Border_East_South
+    Border_East_West
+    Border_South
+    Border_South_West
+    Border_West
+    Mirror_NE_SW
+    Mirror_NW_SE
+    NumberOfSprites
+End Enum    
+
+Type Robot
+    private:
+        beamStartDirection as Direction
+        beamEndDirection as Direction
+        startTile as Tile Ptr = 0
+        endTile as Tile Ptr = 0
+        reflections as Integer = 0
+    public:
+        Declare Constructor( _startTIle as Tile Ptr )
+        Declare Sub shootBeam()
+End Type
+
+Constructor Robot( _startTile as Tile Ptr )
+End Constructor
+
+Sub Robot.shootBeam()
+End Sub
+
+Type Board
+    private:
+        _tileMap as TileMap ptr
+        boardWidth as integer
+        boardHeight as integer
+        tileSprites(TileSprite.NumerOfSprites) as any ptr
+        edges(4) as Tile Ptr Ptr
+        Declare Sub loadSprites()
+        Declare Sub drawTile()
+    public:
+        Declare Constructor (_boardWidth,_boardHeight)
+End Type
+
+Constructor Board
+End Constructor
+
+Sub Board.loadSprites
+    tileSprites(TileSprite.Border_None) = ImageCreate()
+    
+End Sub
+
 System
