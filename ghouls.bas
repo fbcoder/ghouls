@@ -27,7 +27,8 @@ Enum TileSprite
     Border_S
     Border_SW
     Border_W
-    NumberOfSprites
+    Mirror_NE_SW
+    Mirror_NW_SE
 End Enum
 
 Dim Shared mirrorText(3) as String
@@ -311,8 +312,9 @@ Type Board
         _tileMap as TileMap ptr
         boardWidth as integer
         boardHeight as integer
-        tileSprites(TileSprite.NumberOfSprites) as any Ptr
+        tileSprites(20) as any Ptr
         spriteMap(6,6) as integer
+        mirrorMap(6,6) as Mirror
         spriteSize as integer = 32
         edges(4) as Tile Ptr Ptr
         
@@ -359,6 +361,7 @@ Sub Board.drawBorder( img as any Ptr, length as integer, n as integer, e as inte
 End Sub
 
 Sub Board.loadSprites()
+    ' create sprites for borders.
     For i as integer = TileSprite.Border_None to TileSprite.Border_W
         Dim floorColor as integer = 3        
         Dim thisImg as any ptr = imagecreate(spriteSize,spriteSize)            
@@ -400,6 +403,14 @@ Sub Board.loadSprites()
         
         tileSprites(i) = thisImg
     Next i
+    
+    'create sprites for mirrors
+    Dim mirror1 as any ptr = imageCreate(spriteSize,spriteSize)        
+    Line mirror1,(spriteSize-4,4)-(4,spriteSize-4),7    
+    tileSprites(TileSprite.Mirror_NE_SW) = mirror1
+    Dim mirror2 as any ptr = imageCreate(spriteSize,spriteSize)    
+    Line mirror2,(4,4)-(spriteSize-4,spriteSize-4),7
+    tileSprites(TileSprite.Mirror_NW_SE) = mirror2
 End Sub
 
 Sub Board.createTileMap()
@@ -421,9 +432,14 @@ Sub Board.createSpriteMap()
             Dim t as Tile Ptr = _tilemap->getTile(j,i)
             if t <> 0 then
                 Dim td as TileData Ptr = t->getData()
-                if td <> 0 then
+                if td <> 0 then                    
                     spriteMap(j,i) = td->getBorderType()
+                    mirrorMap(j,i) = td->getMirror()
+                else
+                    print "error! tile without tiledata!"
                 end if    
+            else
+                print "error! no tile object!"
             end if    
 		Next j
 	Next i
@@ -453,7 +469,6 @@ Sub Board.placeRandomMirrors()
 	Dim areaPtr as Area ptr = areaIterator.getNextObject()
 	While areaPtr <> 0    
 		areaPtr->placeRandomMirror()
-		'areaPtr->debug()
 		areaPtr = areaIterator.getNextObject()    
 	Wend
 End Sub
@@ -467,6 +482,14 @@ Sub Board._draw( xOffset as integer, yOffset as integer )
 			Dim spriteX as integer = (j * 32) + xOffset
 			Dim spriteY as integer = (i * 32) + yOffset
 			Put (spriteX, SpriteY), tileSprites(spriteMap(j,i))
+            if mirrorMap(j,i) <> Mirror.None then
+                if mirrorMap(j,i) = Mirror.NE_SW then
+                    Put (spriteX, SpriteY), tileSprites(TileSprite.Mirror_NE_SW)
+                end if
+                if mirrorMap(j,i) = Mirror.NW_SE then
+                    Put (spriteX, SpriteY), tileSprites(TileSprite.Mirror_NW_SE)
+                end if
+            end if    
 		next j
 	next i	
 End Sub
