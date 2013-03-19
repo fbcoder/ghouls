@@ -286,8 +286,6 @@ End Sub
 '-------------
 ' Main
 '-------------
-Screen 18
-
 Type Robot
     private:
         beamStartDirection as Direction
@@ -306,6 +304,8 @@ End Constructor
 Sub Robot.shootBeam()
 End Sub
 
+ScreenRes 640,480,32
+
 Type Board
     private:
         areaList as MyList.List
@@ -315,7 +315,11 @@ Type Board
         tileSprites(20) as any Ptr
         spriteMap(6,6) as integer
         mirrorMap(6,6) as Mirror
+        
+        ' Sprites
         spriteSize as integer = 32
+        
+        ' Edges
         edges(4) as Tile Ptr Ptr
         
         ' Internal helpers
@@ -346,6 +350,7 @@ Constructor Board( _boardWidth as integer, _boardHeight as integer )
 End Constructor
 
 Sub Board.drawBorder( img as any Ptr, length as integer, n as integer, e as integer, s as integer, w as integer )
+    Dim borderColor as uinteger = rgb(128,128,128)
     Dim ul_x as integer = 0 
     Dim ul_y as integer = 0
     Dim ur_x as integer = length - 1
@@ -354,16 +359,16 @@ Sub Board.drawBorder( img as any Ptr, length as integer, n as integer, e as inte
     Dim bl_y as integer = length - 1
     Dim br_x as integer = length - 1
     Dim br_y as integer = length - 1
-    if n = 1 then Line img,(ul_x,ul_y)-(ur_x,ur_y),7
-    if e = 1 then Line img,(ur_x,ur_y)-(br_x,br_y),7
-    if s = 1 then Line img,(bl_x,bl_y)-(br_x,br_y),7
-    if w = 1 then Line img,(ul_x,ul_y)-(bl_x,bl_y),7        
+    if n = 1 then Line img,(ul_x,ul_y)-(ur_x,ur_y),borderColor
+    if e = 1 then Line img,(ur_x,ur_y)-(br_x,br_y),borderColor
+    if s = 1 then Line img,(bl_x,bl_y)-(br_x,br_y),borderColor
+    if w = 1 then Line img,(ul_x,ul_y)-(bl_x,bl_y),borderColor        
 End Sub
 
 Sub Board.loadSprites()
     ' create sprites for borders.
     For i as integer = TileSprite.Border_None to TileSprite.Border_W
-        Dim floorColor as integer = 3        
+        Dim floorColor as uinteger = rgb(0,128,128)            
         Dim thisImg as any ptr = imagecreate(spriteSize,spriteSize)            
         Line thisImg,(0,0)-(spriteSize-1,spriteSize-1),floorColor,BF
         
@@ -405,11 +410,26 @@ Sub Board.loadSprites()
     Next i
     
     'create sprites for mirrors
-    Dim mirror1 as any ptr = imageCreate(spriteSize,spriteSize)        
-    Line mirror1,(spriteSize-4,4)-(4,spriteSize-4),7    
-    tileSprites(TileSprite.Mirror_NE_SW) = mirror1
+    Dim mirror1 as any ptr = imageCreate(spriteSize,spriteSize)                
+    Dim as String picture1 = "pictures/mirror_orig.bmp"
+    Dim as String picture2 = "pictures/mirror_flipped.bmp"
+    Dim r as integer = bload(picture1,mirror1)
+    If r <> 0 then
+        print "error loading "; picture1;" : ";r
+        sleep
+        end
+        'Line mirror1,(spriteSize-4,4)-(4,spriteSize-4),7
+    end if    
+    tileSprites(TileSprite.Mirror_NE_SW) = mirror1    
     Dim mirror2 as any ptr = imageCreate(spriteSize,spriteSize)    
-    Line mirror2,(4,4)-(spriteSize-4,spriteSize-4),7
+    r = bload(picture2,mirror2)
+    If r <> 0 then
+        print "error loading "; picture2;" : ";r
+        sleep
+        end
+        'Line mirror1,(spriteSize-4,4)-(4,spriteSize-4),7
+    end if    
+    'Line mirror2,(4,4)-(spriteSize-4,spriteSize-4),7
     tileSprites(TileSprite.Mirror_NW_SE) = mirror2
 End Sub
 
@@ -484,19 +504,24 @@ Sub Board._draw( xOffset as integer, yOffset as integer )
 			Put (spriteX, SpriteY), tileSprites(spriteMap(j,i))
             if mirrorMap(j,i) <> Mirror.None then
                 if mirrorMap(j,i) = Mirror.NE_SW then
-                    Put (spriteX, SpriteY), tileSprites(TileSprite.Mirror_NE_SW)
+                    Put (spriteX, SpriteY), tileSprites(TileSprite.Mirror_NE_SW), trans
                 end if
                 if mirrorMap(j,i) = Mirror.NW_SE then
-                    Put (spriteX, SpriteY), tileSprites(TileSprite.Mirror_NW_SE)
+                    Put (spriteX, SpriteY), tileSprites(TileSprite.Mirror_NW_SE), trans
                 end if
             end if    
 		next j
 	next i	
 End Sub
 
+'--------------
+' Init board.
+'--------------
 Dim b as Board = Board(6,6)
 Cls
-b._draw(10,10)
+Dim xoffset as integer = (640 - (32*6)) \ 2
+Dim yoffset as integer = (480 - (32*6)) \ 2
+b._draw(xoffset,yoffset)
 Sleep
 
 System
