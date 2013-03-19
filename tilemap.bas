@@ -42,6 +42,8 @@ Type Tile
         Declare Sub setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )        
         Declare Function getNeighbor( _direction as Direction ) as Tile Ptr
         Declare Function getData() as Any Ptr
+        Declare Function getX() as integer
+        Declare Function getY() as integer
         Declare Sub debug()
 End Type
 
@@ -71,6 +73,14 @@ Function Tile.getNeighbor ( _direction as Direction ) as Tile Ptr
     return neighbor(_direction)
 End Function
 
+Function Tile.getX() as integer
+    return x
+End Function
+
+Function Tile.getY() as integer
+    return y
+End Function
+
 Sub Tile.debug()
     print "-- Tile --"
     print using "Tile at ##_,##"; x; y
@@ -88,13 +98,13 @@ Type TileMap
         mapWidth as Integer
         map(DEFAULT_MAPWIDTH,DEFAULT_MAPHEIGHT) as Tile Ptr
     public:
-        Declare Constructor( _height as Integer, _width as Integer )
+        Declare Constructor( _width as Integer, _height as Integer )
         Declare Destructor()
         Declare Function getTile( col as Integer, row as Integer ) as Tile Ptr
         Declare Sub debug()
 End Type
 
-Constructor TileMap( _height as Integer, _width as Integer )
+Constructor TileMap( _width as Integer, _height as Integer )
     mapWidth = _width
     mapHeight = _height
     

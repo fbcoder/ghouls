@@ -11,7 +11,7 @@ Type ListNode
     nextNode as ListNode ptr = 0
     prevNode as ListNode ptr = 0
     Declare Constructor ()
-    Declare Constructor (optr as any ptr)
+    Declare Constructor (optr as any ptr)    
     Declare Sub debug()
 End Type    
 
