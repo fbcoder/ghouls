@@ -48,6 +48,8 @@ Type TileData
         directionMap(4) as Direction
         mirrorType as Mirror = Mirror.None
         areaID as Integer = 0
+        _isStartTile as Bool = Bool.False
+        _isEndTile as Bool = Bool.False
         Declare Sub restoreDirectionMap()
     public:
         Declare Constructor( __tile as Tile Ptr )
@@ -56,6 +58,10 @@ Type TileData
         Declare Function getMirror() as Mirror
         Declare Function travelThrough( from as Direction ) as Direction
         Declare Function getBorderType() as TileSprite
+        Declare Function isStartTile() as Bool
+        Declare Function isEndTile() as Bool
+        Declare Sub markAsStartPoint()
+        Declare Sub markAsEndPoint()
         Declare Sub setMirror( _mirrorType as Mirror )
         Declare Sub removeMirror()
         Declare Sub debug()
@@ -205,12 +211,14 @@ Sub Area.addTiles( _tile as Tile Ptr, fromTile as Tile Ptr, s as Integer )
                 tileList.addObject(_tile)
                 _data->setArea(id)          
                 Dim nextTile as Tile Ptr
-                for d as integer = 0 to 3
-                    nextTile = _tile->getNeighbor(d)
+                Dim randomDir as integer = int(rnd * 4)
+                for i as integer = 0 to 3
+                    Dim thisDir as integer = (randomDir + i) mod 4
+                    nextTile = _tile->getNeighbor(thisDir)
                     if nextTile <> fromTile and nextTile <> 0 then
                         addTiles( nextTile, _tile, s + 1 )
                     end if    
-                next d
+                next i
             end if    
         else
             print "error: Tile without TileData object."
@@ -236,9 +244,9 @@ End Function
 Sub Area.placeRandomMirror()
     Dim randomIndex as Integer = int(rnd * tileList.getSize())
     Dim index as integer = 0
-    Dim tempNode as MyList.ListNode ptr = tileList.firstNode
+    Dim tempNode as MyList.ListNode ptr = tileList.getFirst()
     While tempNode <> 0    
-        Dim tp as Tile ptr = tempNode->objectPtr
+        Dim tp as Tile ptr = tempNode->getObject()
         if index = randomIndex then
             If tp <> 0 then                
                 Dim td as TileData ptr = tp->getData()
@@ -262,7 +270,7 @@ Sub Area.placeRandomMirror()
             exit while
         End if    
         index += 1
-        tempNode = tempNode->nextNode
+        tempNode = tempNode->getNext()
     Wend
 End Sub    
 
@@ -270,17 +278,17 @@ Sub Area.debug()
     print "-- Area --"
     print "id "; id
     print "# of tiles "; tileList.getSize()
-    Dim tileIterator as MyList.Iterator = MyList.Iterator(tileList)
-    tileIterator.resetList()
-    while tileIterator.hasNextObject() = Bool.True
-        Dim tp as Tile ptr = tileIterator.getNextObject()
+    Dim thisNode as MyList.ListNode Ptr = tileList.getFirst()
+    while thisNode <> 0
+        Dim tp as Tile ptr = thisNode->getObject()
         if tp <> 0 then
             tp->debug()
             Dim td as TileData ptr = tp->getData()
             if td <> 0 then
                 td->debug()
             end if    
-        end if    
+        end if
+        thisNode = thisNode->getNext()
     wend    
 End Sub
 
@@ -295,7 +303,13 @@ End Sub
 Type Move
     _tile as Tile Ptr
     _tileSprite as TileSprite
+    Declare Constructor( __tile as Tile Ptr, __tileSprite as TileSprite )
 End Type    
+
+Constructor Move( __tile as Tile Ptr, __tileSprite as TileSprite )
+    _tile = __tile
+    _tileSprite = __tileSprite
+End Constructor
 
 Type Robot
     private:
@@ -304,17 +318,19 @@ Type Robot
         startTile as Tile Ptr = 0
         endTile as Tile Ptr = 0
         reflections as Integer = 0
-        path as MyList.List
+        path as MyList.List ptr = 0
         beamSpriteGenerator(4,4) as TileSprite
         Declare Sub addToPath( _tile as Tile Ptr, currentDir as Direction, prevDir as Direction )
     public:
         Declare Constructor( _startTIle as Tile Ptr, startDir as Direction )
         Declare Sub shootBeam()
-        Declare Function getPath() as MyList.List
+        Declare Function getPath() as MyList.List ptr
+        Declare Function getReflections() as Integer
 End Type
 
 Constructor Robot( _startTile as Tile Ptr, startDir as Direction )
     if _startTile <> 0 then
+        path = new MyList.List()
         startTile = _startTile
         beamStartDirection = startDir    
     else
@@ -346,10 +362,18 @@ End Constructor
 
 Sub Robot.addToPath( _tile as Tile Ptr, newDir as Direction, currentDir as Direction )
     '_tile->debug()
-    if newDir <> CurrentDir then
-        reflections += 1
+    if _tile <> 0 then
+        Dim td as TileData Ptr = _tile->getData()
+        if td <> 0 then
+            if td->getMirror() <> Mirror.None then
+                reflections += 1
+            end if    
+        end if    
+        Dim newMove as Move Ptr = new Move( _tile, beamSpriteGenerator( currentDir, newDir ) )
+        'print "Adding new move Object: "; newMove
+        path->addObject( newMove )        
+    else        
     end if    
-    path.addObject(new Move(_tile,beamSpriteGenerator(currentDir,newDir)))
 End Sub
 
 Sub Robot.shootBeam()
@@ -357,8 +381,9 @@ Sub Robot.shootBeam()
     Dim currentTile as Tile Ptr = startTile
     Dim currentDirection as Direction = beamStartDirection
     print
-    print "Constructing Path:"
+    print "** Constructing Path:"
     While currentTile <> 0
+        currentTile->debug()
         Dim td as TileData Ptr = currentTile->getData()
         if td <> 0 then
             ' Temporary dir and tile
@@ -372,12 +397,18 @@ Sub Robot.shootBeam()
             currentDirection = newDirection
         end if
     Wend
+    'print "** Debug Path after construction: "
+    'path->debug()
     'sleep
 End Sub
 
-Function Robot.getPath() as MyList.List
+Function Robot.getPath() as MyList.List ptr
     return path
-End Function    
+End Function
+
+Function Robot.getReflections() as integer
+    return reflections
+End Function
 
 ScreenRes 640,480,32
 
@@ -399,8 +430,7 @@ Type Board
         'edges(4) as Tile Ptr Ptr
         
         ' Robots
-        _robot1 as Robot ptr = 0
-        _robot2 as Robot ptr = 0
+        robots(24) as Robot ptr
         
         ' Internal helpers
         Declare Sub createTileMap()
@@ -420,16 +450,51 @@ End Type
 Constructor Board( _boardWidth as integer, _boardHeight as integer )
 	if _boardWidth <= 6 and _boardHeight <= 6 then
 		boardWidth = _boardWidth
-		boarDHeight = _boardHeight
+		boardHeight = _boardHeight
 		createTileMap()
 		createAreas()
 		placeRandomMirrors()
 		loadSprites()
         createSpriteMap()
-        _robot1 = new Robot(_tileMap->getTile(0,0),Direction.South)
-        _robot1->shootBeam()
-        _robot2 = new Robot(_tileMap->getTile(5,3),Direction.West)
-        _robot2->shootBeam()
+        ' north edge
+        for i as integer = 0 to (boardWidth - 1)
+            robots(i) = new Robot( _tileMap->getTile(i,0), Direction.South)
+            robots(i)->shootBeam()
+            if robots(i)->getReflections() = 0 then
+                delete robots(i)
+                robots(i) = 0
+            end if    
+        next i
+        ' east edge
+        for i as integer = 0 to (boardHeight - 1)
+            Dim index as integer = boardWidth + i
+            robots(index) = new Robot( _tileMap->getTile((boardWidth - 1),i), Direction.West )
+            robots(index)->shootBeam()
+            if robots(index)->getReflections() = 0 then
+                delete robots(index)
+                robots(index) = 0
+            end if 
+        next i      
+        ' south edge
+        for i as integer = 0 to (boardWidth - 1)
+            Dim index as integer = boardWidth + boardHeight + i
+            robots(index) = new Robot( _tileMap->getTile(i,(boardHeight - 1)), Direction.North )
+            robots(index)->shootBeam()            
+            if robots(index)->getReflections() = 0 then
+                delete robots(index)
+                robots(index) = 0
+            end if 
+        next i   
+        ' west edge
+        for i as integer = 0 to (boardHeight - 1)
+            Dim index as integer = (boardWidth * 2) + boardHeight + i
+            robots(index) = new Robot( _tileMap->getTile(0,i), Direction.East )
+            robots(index)->shootBeam()            
+            if robots(index)->getReflections() = 0 then
+                delete robots(index)
+                robots(index) = 0
+            end if 
+        next i   
 	else
 		print "Error: board can be 6 x 6 at most."
 	end if
@@ -561,7 +626,7 @@ Sub Board.createAreas()
 				Dim dp as TileData Ptr = tp->getData()
 				if dp <> Null then
 					if dp->getArea() = 0 then
-						Dim size as integer = int(rnd * 6) + 1
+						Dim size as integer = int(rnd * boardWidth) + 1
 						areaList.addObject(new Area(nextArea,tp,size))
 						nextArea += 1
 					end if    
@@ -572,11 +637,11 @@ Sub Board.createAreas()
 End Sub
 
 Sub Board.placeRandomMirrors()
-	Dim areaIterator as MyList.Iterator = MyList.Iterator(areaList)
-	Dim areaPtr as Area ptr = areaIterator.getNextObject()
-	While areaPtr <> 0    
-		areaPtr->placeRandomMirror()
-		areaPtr = areaIterator.getNextObject()    
+    Dim thisNode as MyList.ListNode ptr = areaList.getFirst()
+	While thisNode <> 0    
+        Dim areaPtr as Area Ptr = thisNode->getObject()
+		areaPtr->placeRandomMirror() 
+        thisNode = thisNode->getNext()
 	Wend
 End Sub
 
@@ -585,16 +650,23 @@ End Sub
 
 Sub Board.drawBeam( __robot as Robot ptr, xOffset as integer, yOffset as integer )
     if __robot <> 0 then
-        Dim _path as MyList.List = __robot->getPath()
-        Dim thisNode as MyList.ListNode Ptr = _path.firstNode
+        Dim _path as MyList.List ptr = __robot->getPath()
+        'print "** start drawing beams **"
+        'print "size of this path: "; _path->getSize()
+        'sleep
+        '_path->debug()        
+        Dim thisNode as MyList.ListNode Ptr = _path->getFirst()
         while thisNode <> 0
-            Dim thisMove as Move ptr = thisNode->objectPtr
+            Dim thisMove as Move ptr = thisNode->getObject()
             if thisMove <> 0 then
-                if thisMove->_tile <> 0 then
+                if thisMove->_tile <> 0 then                    
                     'Dim tileX = 
                     Dim spriteX as integer = (thisMove->_tile->getX() * 32) + xOffset
-                    Dim spriteY as integer = (thisMove->_tile->getY() * 32) + yOffset
-                    Put (spriteX, spriteY), tileSprites(thisMove->_tileSprite), trans
+                    Dim spriteY as integer = (thisMove->_tile->getY() * 32) + yOffset                    
+                    'print "Draw path for robot, tileSprite: "; thisMove->_tileSprite
+                    'thisMove->_tile->debug()
+                    'sleep
+                    Put (spriteX, spriteY), tileSprites(thisMove->_tileSprite), trans                    
                     'locate 23,1
                     'print spriteX; ", "; spriteY
                     'sleep
@@ -603,7 +675,8 @@ Sub Board.drawBeam( __robot as Robot ptr, xOffset as integer, yOffset as integer
                     end
                 end if
             end if    
-            thisNode = thisNode->nextNode
+            thisNode = thisNode->getNext()
+            'sleep
         wend  
     end if    
 End Sub    
@@ -625,18 +698,23 @@ Sub Board._draw( xOffset as integer, yOffset as integer )
 		next j
 	next i
 	
-    drawBeam(_robot1,xOffset,yOffset)
-    drawBeam(_robot2,xoffset,yOffset)
+    for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)
+        drawBeam(robots(i),xOffset,yOffset)    
+    next i    
+    
+    'Dim tempRobot as Robot ptr = new Robot(_tileMap->getTile(0,0),Direction.South)
+    'tempRobot->shootBeam()
+    'drawBeam(tempRobot,xOffset,yOffset)
     
 End Sub
 
 '--------------
 ' Init board.
 '--------------
-Dim b as Board = Board(6,6)
+Dim b as Board = Board(3,3)
 Cls
-Dim xoffset as integer = (640 - (32*6)) \ 2
-Dim yoffset as integer = (480 - (32*6)) \ 2
+Dim xoffset as integer = (640 - (32*3)) \ 2
+Dim yoffset as integer = (480 - (32*3)) \ 2
 b._draw(xoffset,yoffset)
 Sleep
 
