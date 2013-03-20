@@ -35,6 +35,10 @@ Enum TileSprite
     Beam_ES
     Beam_EW
     Beam_SW
+    Tank_N
+    Tank_E
+    Tank_S
+    Tank_W
 End Enum
 
 Dim Shared mirrorText(3) as String
@@ -326,6 +330,10 @@ Type Robot
         Declare Sub shootBeam()
         Declare Function getPath() as MyList.List ptr
         Declare Function getReflections() as Integer
+        Declare Function getEndTile() as Tile Ptr
+        Declare Function getEndDirection() as Direction
+        Declare Function getStartTile() as Tile Ptr
+        Declare Function getStartDirection() as Direction
 End Type
 
 Constructor Robot( _startTile as Tile Ptr, startDir as Direction )
@@ -393,6 +401,10 @@ Sub Robot.shootBeam()
             newTile = currentTile->getNeighbor(newDirection)
             addToPath( currentTile, newDirection, currentDirection)
             ' Move to next
+            if newTile = 0 then
+                beamEndDirection = currentDirection
+                endTile = currentTile
+            end if    
             currentTile = newTile
             currentDirection = newDirection
         end if
@@ -409,6 +421,22 @@ End Function
 Function Robot.getReflections() as integer
     return reflections
 End Function
+
+Function Robot.getEndTile() as Tile Ptr
+    return endTile
+End Function
+
+Function Robot.getEndDirection() as Direction
+    return beamEndDirection
+End Function
+
+Function Robot.getStartTile() as Tile Ptr
+    return startTile
+End Function
+
+Function Robot.getStartDirection() as Direction
+    return beamStartDirection
+End Function    
 
 ScreenRes 640,480,32
 
@@ -581,6 +609,10 @@ Sub Board.loadSprites()
     tileSprites(TileSprite.Beam_ES) = loadSpriteFromFile("pictures/beam_es.bmp")
     tileSprites(TileSprite.Beam_EW) = loadSpriteFromFile("pictures/beam_ew.bmp")
     tileSprites(TileSprite.Beam_SW) = loadSpriteFromFile("pictures/beam_sw.bmp")
+    tileSprites(TileSprite.Tank_N) = loadSpriteFromFile("pictures/tank_n.bmp")
+    tileSprites(TileSprite.Tank_E) = loadSpriteFromFile("pictures/tank_e.bmp")
+    tileSprites(TileSprite.Tank_S) = loadSpriteFromFile("pictures/tank_s.bmp")
+    tileSprites(TileSprite.Tank_W) = loadSpriteFromFile("pictures/tank_w.bmp")
     'Line mirror1,(spriteSize-4,4)-(4,spriteSize-4),7
     'Line mirror2,(4,4)-(spriteSize-4,spriteSize-4),7
 End Sub
@@ -650,6 +682,26 @@ End Sub
 
 Sub Board.drawBeam( __robot as Robot ptr, xOffset as integer, yOffset as integer )
     if __robot <> 0 then
+        ' draw the tanks
+        Dim firstTile as Tile Ptr = __robot->getStartTile()
+        Dim firstDirection as Direction = __robot->getStartDirection()        
+        Dim robotX as integer = firstTile->getX() * 32 + xOffset
+        Dim robotY as integer = firstTile->getY() * 32 + yOffset
+        Dim sprite as TileSprite = TileSprite.Tank_N
+        If firstDirection = Direction.North then             
+            robotY += 32
+        ElseIf firstDirection = Direction.East then
+            sprite = TileSprite.Tank_E
+            robotX -= 32
+        ElseIf firstDirection = Direction.South then         
+            sprite = TileSprite.Tank_S
+            robotY -= 32
+        ElseIf firstDirection = Direction.West then 
+            sprite = TileSprite.Tank_W
+            robotX += 32
+        End if
+        Put (robotX,robotY), tileSprites(sprite),trans
+        
         Dim _path as MyList.List ptr = __robot->getPath()
         'print "** start drawing beams **"
         'print "size of this path: "; _path->getSize()
@@ -659,7 +711,7 @@ Sub Board.drawBeam( __robot as Robot ptr, xOffset as integer, yOffset as integer
         while thisNode <> 0
             Dim thisMove as Move ptr = thisNode->getObject()
             if thisMove <> 0 then
-                if thisMove->_tile <> 0 then                    
+                if thisMove->_tile <> 0 then                                        
                     'Dim tileX = 
                     Dim spriteX as integer = (thisMove->_tile->getX() * 32) + xOffset
                     Dim spriteY as integer = (thisMove->_tile->getY() * 32) + yOffset                    
@@ -677,16 +729,16 @@ Sub Board.drawBeam( __robot as Robot ptr, xOffset as integer, yOffset as integer
             end if    
             thisNode = thisNode->getNext()
             'sleep
-        wend  
+        wend
     end if    
 End Sub    
 
 Sub Board._draw( xOffset as integer, yOffset as integer )
-	for i as integer = 0 to (boardHeight - 1)
+    for i as integer = 0 to (boardHeight - 1)
 		for j as integer = 0 to (boardWidth - 1)
 			Dim spriteX as integer = (j * 32) + xOffset
 			Dim spriteY as integer = (i * 32) + yOffset
-			Put (spriteX, SpriteY), tileSprites(spriteMap(j,i))
+			Put (spriteX, SpriteY), tileSprites(spriteMap(j,i)), pset
             if mirrorMap(j,i) <> Mirror.None then
                 if mirrorMap(j,i) = Mirror.NE_SW then
                     Put (spriteX, SpriteY), tileSprites(TileSprite.Mirror_NE_SW), trans
@@ -702,19 +754,17 @@ Sub Board._draw( xOffset as integer, yOffset as integer )
         drawBeam(robots(i),xOffset,yOffset)    
     next i    
     
-    'Dim tempRobot as Robot ptr = new Robot(_tileMap->getTile(0,0),Direction.South)
-    'tempRobot->shootBeam()
-    'drawBeam(tempRobot,xOffset,yOffset)
-    
 End Sub
 
 '--------------
 ' Init board.
 '--------------
-Dim b as Board = Board(3,3)
+Dim w as integer = 4
+Dim h as integer = 4
+Dim b as Board = Board(w,h)
 Cls
-Dim xoffset as integer = (640 - (32*3)) \ 2
-Dim yoffset as integer = (480 - (32*3)) \ 2
+Dim xoffset as integer = (640 - (32*w)) \ 2
+Dim yoffset as integer = (480 - (32*h)) \ 2
 b._draw(xoffset,yoffset)
 Sleep
 
