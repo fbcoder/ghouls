@@ -428,20 +428,20 @@ Sub Robot.shootBeam()
             addToPath( currentTile, newDirection, currentDirection)
             ' Move to next
             if newTile = 0 then
-                beamEndDirection = currentDirection
+                beamEndDirection = newDirection
                 endTile = currentTile
                 Select Case beamEndDirection
 					case Direction.North:
 						endX = endTile->getX()
-						endY = endTile->getY() + 1
+						endY = endTile->getY() - 1
 					case Direction.East:
-						endX = endTile->getX() - 1
+						endX = endTile->getX() + 1
 						endY = endTile->getY()
 					case Direction.South:
 						endX = endTile->getX()
-						endY = endTile->getY() - 1
+						endY = endTile->getY() + 1
 					case Direction.West:
-						endX = endTile->getX() + 1
+						endX = endTile->getX() - 1
 						endY = endTile->getY()
                 End Select
             end if
@@ -865,7 +865,8 @@ Sub Board.drawTank(__robot as Robot ptr )
 		' draw the number of reflections at endtile
 		Dim endX as integer = __robot->getEndX() * 32 + xOffset
 		Dim endY as integer = __robot->getEndY() * 32 + yOffset
-		Circle (endX+16,endY+16), 13, rgb(255,0,255) 'tileSprites(TileSprite.Border_None),pset		
+		'Circle (endX+16,endY+16), 13, rgb(255,0,255) 'tileSprites(TileSprite.Border_None),pset
+		Draw String (endX+10,endY+10), str(__robot->getReflections())
 	end if
 End Sub
 
