@@ -44,6 +44,7 @@ Type Tile
         Declare Function getData() as Any Ptr
         Declare Function getX() as integer
         Declare Function getY() as integer
+        Declare Function getCoordString() as String
         Declare Sub debug()
 End Type
 
@@ -70,7 +71,13 @@ Function Tile.getData() as Any Ptr
 End Function
 
 Function Tile.getNeighbor ( _direction as Direction ) as Tile Ptr
-    return neighbor(_direction)
+    if _direction >= Direction.North and _direction <= Direction.West then        
+        return neighbor(_direction)
+    else
+        print "Error: wrong direction! "; _direction
+        sleep
+        end
+    end if
 End Function
 
 Function Tile.getX() as integer
@@ -79,6 +86,10 @@ End Function
 
 Function Tile.getY() as integer
     return y
+End Function
+
+Function Tile.getCoordString() as String
+    return "(" & x & "," & y & ")"
 End Function
 
 Sub Tile.debug()
