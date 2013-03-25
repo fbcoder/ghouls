@@ -326,30 +326,20 @@ End Sub
 '-------------
 ' Main
 '-------------
-Enum TerminationCode
-    NotTerminated
-    Null
-    SameArea
-    MustHaveMirror    
-End Enum    
-
 Type PathLeaf
     private:
         _tile as tile Ptr
         orientation as Mirror
-        'terminates as TerminationCode = Terminati
-        bounces as integer = 0
         parent as PathLeaf ptr
         children(3) as PathLeaf ptr
         numberOfChildLeafs as integer = 0
     public:
         Declare Constructor( __tile as Tile Ptr, _orientation as Mirror, _parent as PathLeaf ptr )
-        Declare Sub addChildLeaf( __tile as Tile Ptr, _orientation as Mirror)
+        Declare Sub addChildLeaf( __tile as Tile Ptr, _orientation as Mirror )
         Declare Function getChild( orientation as Mirror ) as PathLeaf Ptr
         Declare Function getParent() as PathLeaf Ptr
         Declare Function hasChildren() as Bool
         Declare Function getTile() as tile Ptr
-        Declare Function getBounces() as integer
         Declare Function getOrientation() as Mirror        
 End Type
 
@@ -361,27 +351,12 @@ Constructor PathLeaf( __tile as Tile Ptr, _orientation as Mirror, _parent as Pat
     if __tile <> 0 then
         _tile = __tile
         if _orientation >= Mirror.None and _orientation <= Mirror.NW_SE then
-            orientation = _orientation
-            Dim as integer parentBounces = 0
-            if parent <> 0 then
-                parentBounces = parent->getBounces
-            end if
-            if _orientation <> Mirror.None then
-                bounces = parentBounces + 1
-            end if                    
-        else
-            print "Wrong value for orientation: "; _orientation
-            sleep
-            end
-        end if
-    else
-        print "Can't take 0 for __tile!"
-        sleep
-        end
+            orientation = _orientation        
+        end if    
     end if        
 End Constructor
 
-Sub PathLeaf.addChildLeaf( __tile as Tile Ptr, _orientation as Mirror )    
+Sub PathLeaf.addChildLeaf( __tile as Tile Ptr, _orientation as Mirror )
     children( _orientation ) = new PathLeaf( __tile, _orientation, @this )
     numberOfChildLeafs += 1
 End Sub
@@ -409,84 +384,24 @@ Function PathLeaf.getOrientation() as Mirror
     return orientation
 End Function
 
-Function PathLeaf.getBounces() as integer
-    return bounces
-End Function    
-
 Type PathTree
     private:
         ' first Leaf in the tree
         root as PathLeaf ptr = 0
-        Declare Sub printLeaf( thisLeaf as PathLeaf Ptr, pathString as String, _step as integer )
-        Declare Sub printLeafs2 ( thisLeaf as PathLeaf Ptr )
     public:
-        Declare Constructor( _tile as Tile Ptr )
+        Declare Constructor( _tile as Tile Ptr, orientation as Mirror )
         Declare Function getRoot( ) as PathLeaf ptr
-        Declare Sub printPaths()
 End Type    
 
-Constructor PathTree( _tile as Tile Ptr )
+Constructor PathTree( _tile as Tile Ptr, orientation as Mirror )
     if _tile <> 0 then
-        root = new PathLeaf(_tile,Mirror.None,0)
+        root = new PathLeaf(_tile,orientation,0)
     end if
 End Constructor
 
 Function PathTree.getRoot() as PathLeaf Ptr
     return root
 End Function    
-
-Sub PathTree.printLeaf( thisLeaf as PathLeaf Ptr, pathString as String, _step as integer )
-    if thisLeaf <> 0 then
-        Dim as Tile Ptr thisTile = thisLeaf->getTile()
-        if thisTile <> 0 then            
-            'print mirrorText(thisLeaf->getOrientation())            
-            for i as integer = 0 to 2
-                print _step; " : "; thisTile->getCoordString()
-                print "via : "; mirrorText(thisLeaf->getOrientation()); " ("; thisLeaf->getBounces() ;" bounces) to: "
-                if thisLeaf->getChild(i) <> 0 then                                        
-                    printLeaf(thisLeaf->getChild(i),pathString,_step + 1)
-                else  
-                    print "-xx-"
-                end if    
-            next i
-         end if    
-    else        
-        'pathString = pathString & "[terminated]"
-        'print pathString
-    end if
-End Sub    
-    
-Sub PathTree.printLeafs2 ( thisLeaf as PathLeaf Ptr )
-    if thisLeaf <> 0 then
-        for i as integer = 0 to 2
-            Dim pathPrinted as integer = 0
-            Dim child as PathLeaf Ptr = thisLeaf->getChild(i)
-            if child <> 0 then
-                printLeafs2 (child)
-            else               
-                if pathPrinted = 0 then
-                    Dim path as string
-                    Dim parent as PathLeaf ptr = thisLeaf
-                    While parent <> 0
-                        Dim thisTile as Tile Ptr = parent->getTile()
-                        Dim thisMirror as Mirror = parent->getOrientation()
-                        path = path & "<--" & thisTile->getCoordString() & "[" & mirrorText(thisMirror) & "]"
-                        'print path
-                        'sleep
-                        parent = parent->getParent()
-                    Wend
-                    pathPrinted = 1
-                    print path
-                    Sleep
-                end if
-            end if    
-        next i
-    end if
-End Sub
-
-Sub PathTree.printPaths()
-    printLeafs2(root)
-End Sub    
 
 Type Move
     _tile as Tile Ptr
@@ -512,7 +427,6 @@ Type Robot
         endTile as Tile Ptr = 0
         reflections as Integer = 0
         path as MyList.List ptr = 0
-        _pathTree as PathTree ptr = 0
         beamSpriteGenerator(4,4) as TileSprite
         directionMutations(3,4) as Direction 
         Declare Sub addToPath( _tile as Tile Ptr, currentDir as Direction, prevDir as Direction )
@@ -538,7 +452,7 @@ Type Robot
         Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
         Declare Function getNewDirection ( currentDirection as Direction, orientation as Mirror ) as Direction
         Declare Function getArea ( _tile as Tile Ptr ) as Area Ptr
-        Declare Sub findNextMirror( _direction as Direction, currentNode as PathLeaf ptr )
+        Declare Sub findNextMirror( _tile as Tile Ptr, _direction as Direction, currentNode as PathLeaf ptr, prevMirrorNode as PathLeaf ptr, bounces as integer )
 End Type
 
 Constructor Robot( _id as integer, _startTile as Tile Ptr, startDir as Direction )
@@ -702,14 +616,9 @@ Function Robot.getMirrorString( oldDir as Direction, newDir as Direction, orient
 End Function
 
 Sub Robot.findAlternativePaths ()
-    print "start following path from "; startTile->getCoordString(); " to "; endTile->getCoordString();" "; directionNames(beamStartDirection); "wards with "; reflections; " reflections."
+    print "start following path from "; startTile->getCoordString(); " to "; endTile->getCoordString();" in direction: "; beamStartDirection
     'followLine (startTile, beamStartDirection, 0, 0, "")
     '@TODO: fix and add findNextMirror here!
-    _pathTree = new PathTree(startTile)
-    findNextMirror(beamStartDirection,_pathTree->getRoot())
-    print "Printing the paths for tank "; id 
-    sleep
-    '_pathTree->printPaths()
 End Sub
 
 Sub Robot.addMirrorToPath( _tile as Tile Ptr, thisDirection as Direction, orientation as Mirror, newBounces as integer, oldPath as String )
@@ -805,47 +714,34 @@ Sub Robot.followLine ( thisTile as Tile Ptr, thisDirection as Direction, bounces
 End Sub
 
 
-Sub Robot.findNextMirror( _direction as Direction, currentNode as PathLeaf ptr )
-    
-    Dim _tile as Tile Ptr = currentNode->getTile()
-    
-    Dim prevMirrorTile as Tile Ptr = 0
-    Dim parent as PathLeaf Ptr = currentNode->getParent()
-    While parent <> 0
-        if parent->getOrientation() <> Mirror.None then
-            prevMirrorTile = parent->getTile()
-            exit While
-        end if
-        'move up
-        parent = parent->getParent()
-    Wend   
-    
-    Dim checkMirror(3) as integer = {0,0,0}    
-    if getArea(_tile)->getSize() > 1 then
-        checkMirror(Mirror.None) = 1
-    end if    
-    if currentNode->getBounces() < reflections then        
-        if prevMirrorTile <> 0 then            
-            if getArea(prevMirrorTile) <> getArea(_tile) then                
-                checkMirror(Mirror.NE_SW) = 1
-                checkMirror(Mirror.NW_SE) = 1
-            end if
+Sub Robot.findNextMirror( _tile as Tile Ptr, _direction as Direction, currentNode as PathLeaf ptr, prevMirrorNode as PathLeaf ptr, bounces as integer )
+    for i as integer = Mirror.None to Mirror.NW_SE
+        Dim skip as Bool = Bool.False
+        Dim newBounces as integer = bounces
+        if i = Mirror.None then
+            if getArea(_tile)->getSize() = 1 then
+                ' a mirror must be placed so empty space is not possible
+                skip = Bool.True
+            else                
+            end if    
         else
-            checkMirror(Mirror.NE_SW) = 1
-            checkMirror(Mirror.NW_SE) = 1
-        end if    
-    end if    
-    
-    for i as integer = 0 to 2        
-        if checkMirror(i) = 1 then
-            Dim newDirection as Direction = directionMutations(i,_direction)
-            Dim nextTile as Tile Ptr = _tile->getNeighbor(newDirection)
+            if bounces < reflections then
+                ' try to place mirrors           
+                ' mirror can't be in the same area as prevMirror
+                'if getArea(thisTile) <> getArea()                
+            else
+                skip = Bool.True
+            end if
+        end if
+        if skip <> Bool.True then
+            Dim as Direction newDirection = directionMutations(i,_direction)
+            Dim as tile Ptr nextTile = _tile->getNeighbor(newDirection)
             if nextTile <> 0 then
                 currentNode->addChildLeaf(nextTile,i)
-                findNextMirror(newDirection,currentNode->getChild(i))
+                findNextMirror(nextTile,newDirection,currentNode,prevMirrorNode,newBounces)
             end if    
-        end if    
-    next i
+        end if        
+    next i    
 End Sub    
 
 Function Robot.getPath() as MyList.List ptr
@@ -1322,11 +1218,10 @@ Sub Board.drawBeam( __robot as Robot ptr )
 End Sub
 
 Sub Board._draw()
+	drawBoardBase()
+	drawAllMirrors()
     for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)
-        cls
-        drawBoardBase()
-        drawAllMirrors()
-        drawTank(robots(i))
+        drawTank(robots(i))        
         if robots(i) <> 0 then
             robots(i)->findAlternativePaths()
             sleep
