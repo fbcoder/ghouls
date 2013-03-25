@@ -1,6 +1,5 @@
 #include once "includes/bool.bas"
 
-Const Null = 0
 Const DEFAULT_MAPWIDTH = 6
 Const DEFAULT_MAPHEIGHT = 6
 
@@ -11,49 +10,45 @@ Enum Direction
     West = 3
 End Enum
 
-Dim Shared directionNames(4) as String
-directionNames(Direction.North) = "North"
-directionNames(Direction.East) = "East"
-directionNames(Direction.South) = "South"
-directionNames(Direction.West) = "West"
-
-'Enum Bool
-'    True = 0
-'    False = not True
-'End Enum
-
-'--------
-' a Tile
-'--------
-
-' Forwarded type decl.
-' Type TilePtr as Tile ptr
+Type Coord
+    x as integer
+    y as integer
+End Type
 
 Type Tile
     private:
-        dataPtr as Any Ptr = null
-        x as integer = 0
-        y as integer = 0
-        neighbor(4) as Tile Ptr
+        _coord as Coord ptr = 0
+        neighbor(3) as Tile Ptr
     public:
         Declare Constructor()
-        Declare Sub setData( _dataPtr as Any Ptr )
+        Declare Destructor()
         Declare Sub setCoords( _x as integer, _y as integer )
         Declare Sub setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )        
-        Declare Function getNeighbor( _direction as Direction ) as Tile Ptr
-        Declare Function getData() as Any Ptr
-        Declare Function getX() as integer
-        Declare Function getY() as integer
+        Declare Function getNeighbor( _direction as Direction ) as Coord Ptr        
+        Declare Function getCoord() as Coord Ptr        
         Declare Function getCoordString() as String
         Declare Sub debug()
+        directionNames(3) as String
 End Type
 
 Constructor Tile()
+    directionNames(Direction.North) = "North"
+    directionNames(Direction.East) = "East"
+    directionNames(Direction.South) = "South"
+    directionNames(Direction.West) = "West"
+    for i as integer = 0 to 3
+        neighbor(i) = 0
+    next i    
 End Constructor
 
+Destructor Tile()
+    if _coord <> 0 then
+        delete _coord
+    end if    
+End Destructor
+
 Sub Tile.setCoords( _x as Integer, _y as Integer )
-    x = _x
-    y = _y
+    _coord = new Coord(_x,_y)
 End Sub
 
 Sub Tile.setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )
@@ -62,17 +57,21 @@ Sub Tile.setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )
     neighbor(_direction) = _tilePtr
 End Sub
 
-Sub Tile.setData( _dataPtr as Any Ptr )
-    dataPtr = _dataPtr
-End Sub
+'Sub Tile.setData( _dataPtr as Any Ptr )
+    'dataPtr = _dataPtr
+'End Sub
 
-Function Tile.getData() as Any Ptr
-    return dataPtr
-End Function
+'Function Tile.getData() as Any Ptr
+    'return dataPtr
+'End Function
 
-Function Tile.getNeighbor ( _direction as Direction ) as Tile Ptr
+Function Tile.getCoord() as Coord Ptr
+    return _coord
+End Function    
+
+Function Tile.getNeighbor ( _direction as Direction ) as Coord ptr
     if _direction >= Direction.North and _direction <= Direction.West then        
-        return neighbor(_direction)
+        return neighbor(_direction)->getCoord()
     else
         print "Error: wrong direction! "; _direction
         sleep
@@ -80,24 +79,20 @@ Function Tile.getNeighbor ( _direction as Direction ) as Tile Ptr
     end if
 End Function
 
-Function Tile.getX() as integer
-    return x
-End Function
-
-Function Tile.getY() as integer
-    return y
-End Function
-
 Function Tile.getCoordString() as String
-    return "(" & x & "," & y & ")"
+    if _coord <> 0 then
+        return "(" & _coord->x & "," & _coord->y & ")"
+    end if
 End Function
 
 Sub Tile.debug()
     print "-- Tile --"
-    print using "Tile at ##_,##"; x; y
+    print using "Tile at "; getCoordString()
+    print " [";str(@this);"]"
     for i as integer = 0 to 3
         print "Neighbor " & directionNames(i) & " is @" & neighbor(i)
     next i
+    print "----------"
 End Sub
 
 '------------
@@ -134,7 +129,7 @@ Constructor TileMap( _width as Integer, _height as Integer )
             'print "Address: " & map(col,row)
             
             if row = 0 then 
-                map(col,row)->setNeighbor(Direction.North,Null)
+                map(col,row)->setNeighbor(Direction.North,0)
             else
                 map(col,row)->setNeighbor(Direction.North,map(col, row - 1))
             end if
@@ -143,19 +138,19 @@ Constructor TileMap( _width as Integer, _height as Integer )
             'print map(col,row)->getNeighbor(Direction.North)
             
             if col = 0 then
-                map(col,row)->setNeighbor(Direction.West,Null)
+                map(col,row)->setNeighbor(Direction.West,0)
             else        
                 map(col,row)->setNeighbor(Direction.West,map(col - 1, row))
             end if
             
             if row = (mapHeight - 1) then
-                map(col,row)->setNeighbor(Direction.South,Null)
+                map(col,row)->setNeighbor(Direction.South,0)
             else
                 map(col,row)->setNeighbor(Direction.South,map(col, row + 1))
             end if
             
             if col = (mapWidth - 1) then
-                map(col,row)->setNeighbor(Direction.East,Null)
+                map(col,row)->setNeighbor(Direction.East,0)
             else
                 map(col,row)->setNeighbor(Direction.East,map(col + 1, row))
             end if 
@@ -174,8 +169,12 @@ End Destructor
 Function TileMap.getTile( col as Integer, row as Integer ) as Tile Ptr
     if col >= 0 and col <= (mapWidth - 1) and row >= 0 and row <= (mapHeight - 1) then
         return map(col,row)
+    else
+        print "Wrong coordinates to fetch tile from: ("; col; ","; row ;")"
+        sleep
+        end
     end if
-    return Null
+    return 0
 End Function
 
 Sub TileMap.debug()                
@@ -184,17 +183,10 @@ Sub TileMap.debug()
         For col as integer = 0 to (mapWidth - 1)
             print using "Debug for tile &_,& :";row;col
             print "Address: " & map(col,row) ' Zero for all tiles!                        
-            if map(col,row) <> Null then
+            if map(col,row) <> 0 then
                 ' Never gets here
                 map(col,row)->debug()       
             end if
         Next col
     Next row    
 End Sub
-
-'------
-' Test
-'------
-'Dim _map as TileMap = TileMap(6,6)
-'_map.debug()
-'sleep

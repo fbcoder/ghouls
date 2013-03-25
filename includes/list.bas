@@ -12,7 +12,8 @@ Type ListNode
         nextNode as ListNode ptr = 0
         prevNode as ListNode ptr = 0
     public:    
-        Declare Constructor (optr as any ptr)    
+        Declare Constructor (optr as any ptr)
+        Declare Destructor ()
         Declare Sub debug()
         Declare Function getNext() as ListNode Ptr
         Declare Function getPrev() as ListNode Ptr
@@ -30,6 +31,9 @@ Constructor ListNode(optr as any ptr)
         end
     end if    
 End Constructor
+
+Destructor ListNode()
+End Destructor
 
 Function ListNode.getNext() as ListNode ptr
     return nextNode

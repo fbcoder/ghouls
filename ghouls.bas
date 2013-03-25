@@ -65,10 +65,10 @@ Type TileData
         Declare Function getMirror() as Mirror
         Declare Function travelThrough( from as Direction ) as Direction
         Declare Function getBorderType() as TileSprite
-        Declare Function isStartTile() as Bool
-        Declare Function isEndTile() as Bool
-        Declare Sub markAsStartPoint()
-        Declare Sub markAsEndPoint()
+        Declare Function getNeighbor( _direction as Direction ) as TileData Ptr
+        'Declare Function getData() as Any Ptr
+        Declare Function getX() as integer
+        Declare Function getY() as integer
         Declare Sub setMirror( _mirrorType as Mirror )
         Declare Sub removeMirror()
         Declare Sub debug()
@@ -79,6 +79,8 @@ Constructor TileData( __tile as Tile Ptr )
         _tile = __tile
     else
         print "Error: Can't construct TileData without Tile object."
+        sleep
+        end
     end if
     restoreDirectionMap()
 End Constructor
@@ -95,10 +97,14 @@ Sub TileData.setArea( __area as AreaPtr )
         if _area = 0 then
             _area = __area
         else
+            print "Already Assigned to Area!"            
             sleep
+            end
         end if
     else
+        print "Empty Area!"        
         sleep
+        end
     end if    
 End Sub
 
@@ -194,6 +200,15 @@ End Sub
 '----------
 ' An area
 '----------
+Type AreaMap
+    mapData(6,6) as Area Ptr = 0
+    Declare Function mapDataFor(_tile as Tile Ptr) as Area Ptr
+    Declare Sub setData(_tile as Tile Ptr, Area Ptr)
+End Type
+
+mapDataFor()
+    
+
 Type Area
     private:
         id as integer = 0
@@ -514,10 +529,12 @@ Type Robot
         path as MyList.List ptr = 0
         _pathTree as PathTree ptr = 0
         beamSpriteGenerator(4,4) as TileSprite
-        directionMutations(3,4) as Direction 
+        directionMutations(3,4) as Direction
+        directionNames(4) as String
         Declare Sub addToPath( _tile as Tile Ptr, currentDir as Direction, prevDir as Direction )
     public:
         Declare Constructor( _id as integer, _startTile as Tile Ptr, startDir as Direction )
+        Declare Destructor ()
         Declare Sub shootBeam()
         Declare Function getPath() as MyList.List ptr
         Declare Function getReflections() as Integer
@@ -531,14 +548,15 @@ Type Robot
         Declare Function getStartY() as Integer
         
         ' Methods for pathfinding
-        Declare Sub followLine ( thisTile as Tile Ptr, thisDirection as Direction, bounces as integer, lineLength as integer, thisPath as String )
-        Declare Sub placeMirror( orientation as Mirror, thisTile as Tile Ptr, prevTile as Tile Ptr, thisDirection as Direction, bounces as integer, thisPath as String )
+        'Declare Sub followLine ( thisTile as Tile Ptr, thisDirection as Direction, bounces as integer, lineLength as integer, thisPath as String )
+        'Declare Sub placeMirror( orientation as Mirror, thisTile as Tile Ptr, prevTile as Tile Ptr, thisDirection as Direction, bounces as integer, thisPath as String )
         Declare Sub findAlternativePaths ()
-        Declare Sub addMirrorToPath( _tile as Tile Ptr, thisDirection as Direction, orientation as Mirror, newBounces as integer, oldPath as String )
+        'Declare Sub addMirrorToPath( _tile as Tile Ptr, thisDirection as Direction, orientation as Mirror, newBounces as integer, oldPath as String )
         Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
         Declare Function getNewDirection ( currentDirection as Direction, orientation as Mirror ) as Direction
         Declare Function getArea ( _tile as Tile Ptr ) as Area Ptr
         Declare Sub findNextMirror( _direction as Direction, currentNode as PathLeaf ptr )
+        Declare Sub debug()
 End Type
 
 Constructor Robot( _id as integer, _startTile as Tile Ptr, startDir as Direction )
@@ -549,10 +567,17 @@ Constructor Robot( _id as integer, _startTile as Tile Ptr, startDir as Direction
             print "Error: Zero is no valid ID for tank."
             sleep
             end
-        end if    
+        end if
         path = new MyList.List()
         startTile = _startTile
-        beamStartDirection = startDir
+        if startDir >= Direction.North and startDir <= Direction.West then
+            beamStartDirection = startDir
+        else
+            print "Wrong value for startDir: "; startDir
+            sleep
+            end
+        end if        
+        
         Select Case beamStartDirection
 			case Direction.North:
 				startX = startTile->getX()
@@ -569,6 +594,7 @@ Constructor Robot( _id as integer, _startTile as Tile Ptr, startDir as Direction
         End Select
     else
         print "Error: Can't init robot with no TileObject."
+        sleep
         end
     end if
 
@@ -609,7 +635,20 @@ Constructor Robot( _id as integer, _startTile as Tile Ptr, startDir as Direction
     directionMutations(Mirror.NW_SE, Direction.South) = Direction.East
     directionMutations(Mirror.NW_SE, Direction.West) = Direction.North
     
+    directionNames(Direction.North) = "North"
+    directionNames(Direction.East) = "East"
+    directionNames(Direction.South) = "South"
+    directionNames(Direction.West) = "West"
 End Constructor
+
+Destructor Robot
+    if _pathTree <> 0 then
+        delete _pathTree
+    end if    
+    If path <> 0 then
+        delete path
+    end if    
+End Destructor
 
 Sub Robot.addToPath( _tile as Tile Ptr, newDir as Direction, currentDir as Direction )
     '_tile->debug()
@@ -632,14 +671,14 @@ Sub Robot.shootBeam()
     Dim currentTile as Tile Ptr = startTile
     Dim currentDirection as Direction = beamStartDirection
     print
-    print "** Constructing Path:"
+    print "** Constructing Path  for tank: "; id
     While currentTile <> 0
         currentTile->debug()
         Dim td as TileData Ptr = currentTile->getData()
         if td <> 0 then
             ' Temporary dir and tile
             Dim newDirection as Direction
-            Dim newTile as Tile Ptr
+            Dim newTile as Tile Ptr = 0
             newDirection = td->travelThrough(currentDirection)
             newTile = currentTile->getNeighbor(newDirection)
             addToPath( currentTile, newDirection, currentDirection)
@@ -702,108 +741,27 @@ Function Robot.getMirrorString( oldDir as Direction, newDir as Direction, orient
 End Function
 
 Sub Robot.findAlternativePaths ()
-    print "start following path from "; startTile->getCoordString(); " to "; endTile->getCoordString();" "; directionNames(beamStartDirection); "wards with "; reflections; " reflections."
-    'followLine (startTile, beamStartDirection, 0, 0, "")
-    '@TODO: fix and add findNextMirror here!
-    _pathTree = new PathTree(startTile)
-    findNextMirror(beamStartDirection,_pathTree->getRoot())
-    print "Printing the paths for tank "; id 
-    sleep
-    '_pathTree->printPaths()
-End Sub
-
-Sub Robot.addMirrorToPath( _tile as Tile Ptr, thisDirection as Direction, orientation as Mirror, newBounces as integer, oldPath as String )
-    Dim oldDir as Direction = thisDirection                            
-    thisDirection = getNewDirection(thisDirection, orientation)
-    if thisDirection > 3 or thisDirection < 0 then
-        print "wrong direction!: "; thisDirection
+    if startTile <> 0 then
+        print "start: "
+        startTile->debug()
+        print "end: "
+        endTile->debug()
+        print "start following path from "; startTile->getCoordString(); " to "; endTile->getCoordString();" "; directionNames(beamStartDirection); "wards with "; reflections; " reflections."
+        'followLine (startTile, beamStartDirection, 0, 0, "")
+        '@TODO: fix and add findNextMirror here!
+        print "init tree: "
+        _pathTree = new PathTree(startTile)
+        print "start finding alternatives: "
+        findNextMirror(beamStartDirection,_pathTree->getRoot())
+        print "finished pathfinding for"; id 
+        sleep
+    else
+        print "Can't find path with empty starttile!"
         sleep
         end
-    end if    
-    Dim as String newPath 
-    newPath = oldPath & getMirrorString(oldDir,thisDirection,orientation)
-    followLine(_tile, thisDirection, newBounces, 0, newPath)
-End Sub
-
-Sub Robot.placeMirror( orientation as Mirror, thisTile as Tile Ptr, prevTile as Tile Ptr, thisDirection as Direction, bounces as integer, thisPath as String )
-    if orientation <> Mirror.None then
-        if thisTile <> 0 then
-            if prevTile <> 0 then
-                if thisTile <> prevTile then
-                    if getArea(thisTile) <> getArea(prevTile) then
-                        ' if mirror does not stand in the way of other Tanks' path
-                        addMirrorToPath(thisTile, thisDirection, orientation, bounces + 1, thisPath)
-                    else
-                        print "fail (2 mirrors in same area): "; thisPath
-                        return
-                    end if                    
-                end if            
-                return
-            else
-                addMirrorToPath(thisTile, thisDirection, orientation, bounces + 1, thisPath)
-            end if
-        else
-            if prevTile <> 0 then
-                addMirrorToPath(thisTile, thisDirection, orientation, bounces + 1, thisPath)
-            end if    
-        end if
     end if
+    '_pathTree->printPaths()
 End Sub
-    
-Sub Robot.followLine ( thisTile as Tile Ptr, thisDirection as Direction, bounces as integer, lineLength as integer, thisPath as String )
-    if thisTile <> 0 then          
-        thisPath = thisPath & "[" & bounces & "]" & thisTile->getCoordString()
-        
-        ' get the next Tile in this Line
-        Dim nextTile as Tile Ptr
-        nextTile = thisTile->getNeighbor(thisDirection)
-        Dim continueThisLine as Bool = Bool.False
-        ' if the desired number of reflections is not meet yet
-        if bounces < reflections then        
-            Dim pathFork as String            
-            if lineLength = 0 then
-                pathFork = thisPath
-                placeMirror(Mirror.NE_SW, thisTile, 0, thisDirection, bounces, pathFork)
-                pathFork = thisPath
-                placeMirror(Mirror.NW_SE, thisTile, 0, thisDirection, bounces, pathFork)            
-            else
-                pathFork = thisPath
-                placeMirror(Mirror.NE_SW, nextTile, thisTile, thisDirection, bounces, pathFork)
-                pathFork = thisPath
-                placeMirror(Mirror.NW_SE, nextTile, thisTile, thisDirection, bounces, pathFork)                
-            end if
-            continueThisLine = Bool.True
-        else
-            Select Case thisDirection
-                case Direction.North or Direction.South:
-                    if thisTile->getX() = endX then 
-                        continueThisLine = Bool.True                
-                    end if    
-                case Direction.East or Direction.West:
-                    if thisTile->getY() = endY then 
-                        continueThisLine = Bool.True                
-                    end if    
-            End Select
-        end if        
-        if nextTile <> 0 then
-            if continueThisLine = Bool.True then
-                ' this space must be free in order to reach endpoint
-                thisPath = thisPath & "->" 
-                followLine (nextTile, thisDirection, bounces, lineLength + 1, thisPath)
-            end if
-        else
-            if thisTile = endTile and thisDirection = beamEndDirection then
-                ' eureka! found a route
-                print "succes! : " & thisPath
-                'sleep
-            else
-                ' failed to find a path
-                print "fail! : " & thisPath
-            end if    
-        end if    
-    end if    
-End Sub
-
 
 Sub Robot.findNextMirror( _direction as Direction, currentNode as PathLeaf ptr )
     
@@ -888,19 +846,34 @@ Function Robot.getEndY() as Integer
 	return endY
 End Function
 
+Sub Robot.debug()
+    print "-- Tank --"
+    print "ID: "; id
+    print "my startile: "
+    if startTile <> 0 then
+        startTile->debug()
+    else
+        print "No startTile defined."
+    end if    
+    print "my endtile: "    
+    if startTile <> 0 then
+        endTile->debug()
+    else
+        print "No endTile defined."
+    end if
+End Sub    
+
 ScreenRes 640,480,32
 
 Type Board
     private:
         areaList as MyList.List
-        'areaList as Area Ptr Ptr
-        'areas as integer = 0
         _tileMap as TileMap ptr
         boardWidth as integer
         boardHeight as integer
 
         ' SET THE RIGHT NUMBER HERE!!
-        tileSprites(30) as any Ptr
+        tileSprites(40) as any Ptr
         spriteMap(6,6) as integer
         mirrorMap(6,6) as Mirror
         tankPositionTaken(4,6) as Bool
@@ -922,19 +895,19 @@ Type Board
         Declare Function loadSpriteFromFile( fileName as String ) as any ptr
         Declare Sub loadSprites()
         Declare Sub createSpriteMap()
+        
         ' Robots
         robots(24) as Robot ptr
+        Declare Function addTank( _tile as Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr
+        Declare Sub removeTank( _tile as Tile Ptr, _direction as Direction )
 
         ' Internal helpers
         Declare Sub createTileMap()
-        Declare Sub addArea( newArea as Area Ptr )
         Declare Sub createAreas()
         Declare Sub placeRandomMirrors()
     public:
         Declare Constructor( _boardWidth as integer, _boardHeight as integer )
-        Declare Sub _draw()
-        Declare Function addTank( _tile as Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr
-        Declare Sub removeTank( _tile as Tile Ptr, _direction as Direction )
+        Declare Sub _draw()                
         Declare Sub setOffset( _xOffset as integer, yOffset as integer )
         Declare Function getWidth () as integer
         Declare Function getHeight () as integer
@@ -975,6 +948,8 @@ Constructor Board( _boardWidth as integer, _boardHeight as integer )
         next i
 	else
 		print "Error: board can be 6 x 6 at most."
+        sleep
+        end
 	end if
 End Constructor
 
@@ -1004,6 +979,7 @@ Function Board.loadSpriteFromFile( fileName as String ) as any ptr
     Dim returnValue as integer = bload(fileName,_img)
     if returnValue <> 0 then
         print "Failed to load ";fileName; ", error nr.";returnValue
+        sleep
         end
     else
         return _img
@@ -1077,7 +1053,7 @@ Sub Board.createTileMap()
 		For j as integer = 0 to (boardWidth - 1)
 			Dim t as Tile Ptr = _tilemap->getTile(j,i)
 			if t <> Null then
-				t->setData(new TileData(t))
+				dataMap(j,i) = new TileData(t)
 			end if
 		Next j
 	Next i
@@ -1094,44 +1070,21 @@ Sub Board.createSpriteMap()
                     mirrorMap(j,i) = td->getMirror()
                 else
                     print "error! tile without tiledata!"
+                    sleep
+                    end
                 end if
             else
                 print "error! no tile object!"
+                sleep
+                end
             end if
 		Next j
 	Next i
 End Sub
 
-Sub Board.addArea( newArea as Area Ptr )
-    if newArea <> 0 then
-        Dim result as Area Ptr = 0
-        'result = reallocate(areaList,(areas + 1) * sizeof(Area Ptr))
-        if result <> 0 then
-            'areaList[areas] = 0
-            'areaList[areas] = newArea
-            'areas += 1
-        else
-            print "Error: Failed to reallocate! "
-            sleep
-            end 
-        end if
-    else
-        print "Error: can't add 0 as Area"
-        sleep
-        end
-    end if
-End Sub
-
 Sub Board.createAreas()	
     if _tileMap <> 0 then
-        'areaList = callocate(0,sizeof(Area Ptr))
-        'if areaList = 0 then
-        '    print "failed to allocate areaList!"
-        '    sleep
-        '    end
-        'end if    
-        Dim tilesInAreas as integer = 0
-		'Dim nextArea as integer = 1
+        Dim tilesInAreas as integer = 0		
 		For i as integer = 0 to (boardHeight - 1)
 			For j as integer = 0 to (boardWidth - 1)
 				Dim tp as Tile Ptr = _tileMap->getTile(j,i)
@@ -1141,14 +1094,7 @@ Sub Board.createAreas()
                         Dim size as integer = int(rnd * boardWidth) + 1
                         Dim newArea as Area Ptr = new Area(i,tp,size)
 						areaList.addObject(newArea)
-                        'addArea(newArea)                        
-                        tilesInAreas += newArea->getSize()
-                        'else
-                        '    print "Area not created: "; areas
-                        '    sleep
-                        '    end
-                        'end if
-						'nextArea += 1
+                        tilesInAreas += newArea->getSize()                      
 					end if
 				end if
 			Next j
@@ -1164,16 +1110,16 @@ End Sub
 Sub Board.placeRandomMirrors()
     Dim thisNode as MyList.ListNode ptr = areaList.getFirst()
 	While thisNode <> 0
-        Dim areaPtr as Area Ptr = thisNode->getObject()
-		areaPtr->placeRandomMirror()
-        thisNode = thisNode->getNext()
+        Dim thisArea as Area Ptr = thisNode->getObject()
+        if thisArea <> 0 then        
+            thisArea->placeRandomMirror()
+            thisNode = thisNode->getNext()
+        else
+            print "no area to place mirror in!"
+            sleep
+            end
+        end if
 	Wend
-    'print "start placing random mirrors"
-    'print "number of areas: "; areas
-    'sleep
-    'for i as integer = 0 to areas - 1
-    '    areaList[i]->placeRandomMirror()
-    'next i
 End Sub
 
 Function Board.addTank( _tile as Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr
@@ -1199,7 +1145,7 @@ Function Board.addTank( _tile as Tile Ptr, _direction as Direction, _tankID as i
 				end if
 			end if
 		next i
-
+        
 		newRobot->shootBeam()
 		if newRobot->getReflections() > 0 and isEndPointOfOtherRoute = Bool.False then
 			tankPositionTaken(edge,index) = Bool.True
@@ -1223,6 +1169,10 @@ End Sub
 Function Board.getSpriteX(_tile as Tile Ptr) as integer
 	if _tile <> 0 then
 		return (_tile->getX() * 32 + xOffset)
+    else
+        print "no tile to get spriteX from!"
+        sleep
+        end
 	end if
 	return -1
 End Function
@@ -1234,6 +1184,10 @@ End Function
 Function Board.getSpriteY(_tile as Tile Ptr) as integer
 	if _tile <> 0 then
 		return (_tile->getY() * 32 + yOffset)
+    else
+        print "no tile to get spriteY from!"
+        sleep
+        end
 	end if
 	return -1
 End Function
@@ -1292,7 +1246,7 @@ End Sub
 Sub Board.drawBeam( __robot as Robot ptr )
     if __robot <> 0 then
         Dim _path as MyList.List ptr = __robot->getPath()
-        'print "** start drawing beams **"
+        print "** start drawing beams **"
         'print "size of this path: "; _path->getSize()
         'sleep
         '_path->debug()
@@ -1318,20 +1272,25 @@ Sub Board.drawBeam( __robot as Robot ptr )
             thisNode = thisNode->getNext()
             'sleep
         wend
+        print "** done **"
     end if
 End Sub
 
 Sub Board._draw()
     for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)
         cls
+        print "for tank "; i; ": "
+        print "draw base:"
         drawBoardBase()
+        print "draw mirrors:"
         drawAllMirrors()
-        drawTank(robots(i))
         if robots(i) <> 0 then
+            robots(i)->debug()
+            drawTank(robots(i))
             robots(i)->findAlternativePaths()
+            drawBeam(robots(i))
             sleep
         end if    
-        'drawBeam(robots(i))
     next i
 End Sub
 
@@ -1349,7 +1308,7 @@ End Type
 '--------------
 ' Init board.
 '--------------
-Dim w as integer = 3
+Dim w as integer = 4
 Dim h as integer = 3
 Dim b as Board = Board(w,h)
 Cls
