@@ -40,7 +40,13 @@ Function ListNode.getPrev() as ListNode ptr
 End Function
 
 Function ListNode.getObject() as any ptr
-    return objectPtr
+    if objectPtr <> 0 then
+        return objectPtr
+    end if
+    print "Error: Can't get empty object from ListNode!"
+    sleep
+    end
+    return 0
 End Function
 
 Sub ListNode.setNext( _nextNode as ListNode ptr )
@@ -66,6 +72,7 @@ Type List
         Declare Sub addObject(p as any ptr)    
         Declare Sub addNode(nodePtr as ListNode ptr)
         Declare Sub debug ()
+        'Declare Sub deleteObjects ()
         Declare Function getSize() as integer
         Declare Function getFirst() as ListNode ptr
         Declare Destructor
