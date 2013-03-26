@@ -16,17 +16,16 @@ End Type
 '--------
 Type Tile
     private:
-        dataPtr as Any Ptr = 0
         _coord as Coord ptr
         neighbor(4) as Tile Ptr
     public:
         Declare Constructor()
         Declare Destructor()
-        Declare Sub setData( _dataPtr as Any Ptr )
+        'Declare Sub setData( _dataPtr as Any Ptr )
         Declare Sub setCoord( _x as integer, _y as integer )
         Declare Sub setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )        
         Declare Function getNeighbor( _direction as Direction ) as Tile Ptr
-        Declare Function getData() as Any Ptr
+        'Declare Function getData() as Any Ptr
         Declare Function getCoord() as Coord Ptr
         Declare Function getCoordString() as String
         Declare Sub debug()
@@ -56,13 +55,13 @@ Sub Tile.setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )
     neighbor(_direction) = _tilePtr
 End Sub
 
-Sub Tile.setData( _dataPtr as Any Ptr )
-    dataPtr = _dataPtr
-End Sub
-
-Function Tile.getData() as Any Ptr
-    return dataPtr
-End Function
+'Sub Tile.setData( _dataPtr as Any Ptr )
+'    dataPtr = _dataPtr
+'End Sub
+'
+'Function Tile.getData() as Any Ptr
+'    return dataPtr
+'End Function
 
 Function Tile.getNeighbor ( _direction as Direction ) as Tile Ptr
     if _direction >= Direction.North and _direction <= Direction.West then        
