@@ -39,7 +39,7 @@ Type BoardPtr as Board Ptr
 '------
 Type Area
     private:
-        as BoardPtr _board
+        _board as BoardPtr 
         id as integer = 0
         tileList as MyList.list
         size as integer = 0
@@ -62,10 +62,7 @@ Constructor Area ( _id as integer, startTile as TileMap_.Tile Ptr, _maxSize as i
     _board = __board
     maxSize = _maxSize
     addTiles(startTile,0,1)
-    'print "Area "; id; " :"
-    'print "Added "; tileList.getSize(); " tiles."
 End Constructor
-
 
 Function Area.getRandomDirection() as Direction
     Dim r as integer = int(rnd * 4)
@@ -95,10 +92,6 @@ Sub Area.debug()
         Dim tp as TileMap_.Tile ptr = thisNode->getObject()
         if tp <> 0 then
             tp->debug()
-            'Dim td as TileData ptr = tp->getData()
-            'if td <> 0 then
-            '    td->debug()
-            'end if
         end if
         thisNode = thisNode->getNext()
     wend
@@ -112,39 +105,47 @@ End Sub
 '---------------------
 ' Path Tree and Leafs
 '---------------------
+Type RouteStep
+    _tile as TileMap_.Tile Ptr
+    _mirror as Mirror
+End Type    
+
 Type PathLeaf
     private:
         _tile as TileMap_.Tile Ptr
-        orientation as Mirror
+        parentOrientation as Mirror
         parent as PathLeaf ptr
+        comingFrom as Direction
         children(3) as PathLeaf ptr
-        numberOfChildLeafs as integer = 0
     public:
-        Declare Constructor( __tile as TileMap_.Tile Ptr, _orientation as Mirror, _parent as PathLeaf ptr )
-        Declare Sub addChildLeaf( __tile as TileMap_.Tile Ptr, _orientation as Mirror )
+        Declare Constructor( __tile as TileMap_.Tile Ptr, _parentOrientation as Mirror = Mirror.None, _parent as PathLeaf ptr, _direction as Direction )
+        Declare Sub addChildLeaf( childTile as TileMap_.Tile Ptr, _orientation as Mirror, _direction as Direction )
         Declare Function getChild( orientation as Mirror ) as PathLeaf Ptr
         Declare Function getParent() as PathLeaf Ptr
         Declare Function hasChildren() as Bool
         Declare Function getTile() as TileMap_.Tile Ptr
-        Declare Function getOrientation() as Mirror        
+        Declare Function getParentOrientation() as Mirror
+        Declare Function getIncoming() as Direction
 End Type
 
-Constructor PathLeaf( __tile as TileMap_.Tile Ptr, _orientation as Mirror, _parent as PathLeaf ptr )    
+Constructor PathLeaf( __tile as TileMap_.Tile Ptr, _parentOrientation as Mirror = Mirror.None, _parent as PathLeaf ptr, _direction as Direction )    
+    _tile = __tile
     parent = _parent
+    parentOrientation = _parentOrientation
+    comingFrom = _direction
     for i as integer = Mirror.None to Mirror.NW_SE
         children(i) = 0
-    next i   
-    if __tile <> 0 then
-        _tile = __tile
-        if _orientation >= Mirror.None and _orientation <= Mirror.NW_SE then
-            orientation = _orientation        
-        end if    
-    end if        
+    next i        
 End Constructor
 
-Sub PathLeaf.addChildLeaf( __tile as TileMap_.Tile Ptr, _orientation as Mirror )
-    children( _orientation ) = new PathLeaf( __tile, _orientation, @this )
-    numberOfChildLeafs += 1
+Sub PathLeaf.addChildLeaf( childTile as TileMap_.Tile Ptr, _orientation as Mirror, _direction as Direction )
+    if _tile <> 0 then
+        children(_orientation) = new PathLeaf(childTile,_orientation,@this,_direction)
+    else
+        print "Error: Can't add a ChildNode to a Node with a Null Tile!"
+        sleep
+        end
+    end if
 End Sub
 
 Function PathLeaf.getChild( orientation as Mirror ) as PathLeaf Ptr
@@ -155,10 +156,18 @@ Function PathLeaf.getParent() as PathLeaf Ptr
     return parent
 End Function    
 
+Function PathLeaf.getParentOrientation() as Mirror
+    return parentOrientation
+End Function
+
+Function PathLeaf.getIncoming() as Direction
+    return comingFrom
+End Function
+
 Function PathLeaf.hasChildren() as Bool
-    if numberOfChildLeafs > 0 then
-        return Bool.True
-    end if
+    for i as integer = Mirror.None to Mirror.NW_SE
+        if children(i) <> 0 then return Bool.True
+    next i    
     return Bool.False
 End Function    
 
@@ -166,29 +175,69 @@ Function PathLeaf.getTile() as TileMap_.Tile Ptr
     return _tile
 End Function
 
-Function PathLeaf.getOrientation() as Mirror
-    return orientation
-End Function
-
 ' Tree
 Type PathTree
     private:
         ' first Leaf in the tree
         root as PathLeaf ptr = 0
+        routeList as MyList.List ptr = 0
     public:
-        Declare Constructor( _tile as TileMap_.Tile Ptr, orientation as Mirror )
+        Declare Constructor( _tile as TileMap_.Tile Ptr, _direction as Direction )
         Declare Function getRoot( ) as PathLeaf ptr
+        Declare Sub addSuccessRoute ( leaf as PathLeaf Ptr )
+        Declare Sub printRoutes ()
 End Type    
 
-Constructor PathTree( _tile as TileMap_.Tile Ptr, orientation as Mirror )
+Constructor PathTree( _tile as TileMap_.Tile Ptr, _direction as Direction )
     if _tile <> 0 then
-        root = new PathLeaf(_tile,orientation,0)
+        root = new PathLeaf(_tile,Mirror.None,0,_direction)
     end if
 End Constructor
 
 Function PathTree.getRoot() as PathLeaf Ptr
     return root
 End Function    
+
+Sub PathTree.addSuccessRoute (leaf as PathLeaf Ptr)    
+    if routeList = 0 then
+        routeList = new MyList.List()
+    end if
+    Dim thisRoute as MyList.List Ptr = new MyList.List()
+    Dim thisLeaf as PathLeaf Ptr = leaf
+    While thisLeaf->getParent() <> 0      
+        thisRoute->addObject(new RouteStep(thisLeaf->getParent()->getTile(),thisLeaf->getParentOrientation()))
+        thisLeaf = thisLeaf->getParent()
+    Wend
+    routeList->addObject(thisRoute)
+End Sub    
+
+Sub PathTree.printRoutes ()
+    Dim routes as integer = 0
+    if routeList <> 0 then
+        print "Found "; routeList->getSize(); " routes."
+        Dim thisRoute as MyList.ListNode ptr = routeList->getFirst()
+        while thisRoute <> 0
+            Dim _route as MyList.List ptr = thisRoute->getObject()
+            if _route <> 0 then
+                routes += 1
+                print "Route ";routes
+                Dim thisStep as MyList.ListNode ptr = _route->getFirst()
+                while thisStep <> 0
+                    Dim _routeStep as RouteStep ptr = thisStep->getObject()
+                    if _routeStep <> 0 then
+                        print "----"
+                        print _routeStep->_tile->getCoordString()
+                        print mirrorText(_routeStep->_mirror)                        
+                    end if
+                    thisStep = thisStep->getNext()
+                wend                
+            end if
+            thisRoute = thisRoute->getNext()
+        wend    
+    else
+        print "No Routes" 
+    end if
+End Sub    
 
 '---------------------------------
 ' Move object used by Robot/Tank
@@ -210,6 +259,7 @@ End Constructor
 Type Robot
     private:
         _board as BoardPtr
+        _pathTree as PathTree Ptr
         id as integer
         startX as integer
         startY as integer
@@ -242,7 +292,10 @@ Type Robot
         ' Methods for pathfinding        
         Declare Sub findAlternativePaths ()        
         Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
-        Declare Sub findNextMirror( _tile as TileMap_.Tile Ptr, _direction as Direction, currentNode as PathLeaf ptr, prevMirrorNode as PathLeaf ptr, bounces as integer )
+        Declare Sub findNextMirror( node as PathLeaf ptr, bounces as integer )
+        Declare Function areaHasMirror ( node as PathLeaf ptr ) as Bool
+        Declare Sub checkChild_Mirror ( _mirror as Mirror, node as PathLeaf ptr, bounces as integer )
+        Declare Sub checkChild_NoMirror( node as PathLeaf ptr, bounces as integer )
 End Type
 
 Constructor Robot( _id as integer, _startTile as TileMap_.Tile Ptr, startDir as Direction, __board as BoardPtr )
@@ -341,9 +394,59 @@ Sub Robot.findAlternativePaths ()
     print "start following path from "; startTile->getCoordString(); " to "; endTile->getCoordString();" in direction: "; beamStartDirection
     'followLine (startTile, beamStartDirection, 0, 0, "")
     '@TODO: fix and add findNextMirror here!
+    _pathTree = new PathTree(startTile,beamStartDirection)
+    findNextMirror( _pathTree->getRoot(), 0 )
+    _pathTree->printRoutes()
 End Sub
 
-Sub Robot.findNextMirror( _tile as TileMap_.Tile Ptr, _direction as Direction, currentNode as PathLeaf ptr, prevMirrorNode as PathLeaf ptr, bounces as integer )   
+Sub Robot.checkChild_Mirror( _mirror as Mirror, node as PathLeaf ptr, bounces as integer )
+    if bounces < reflections then
+        if areaHasMirror(node) = Bool.False then            
+            Dim newDirection as Direction = directionMutations(_mirror,node->getIncoming())
+            Dim nextTile as TileMap_.Tile Ptr = node->getTile()->getNeighbor(newDirection)            
+            node->addChildLeaf(nextTile,_mirror,newDirection)
+            Dim createdChild as PathLeaf ptr = node->getChild(_mirror)
+            if createdChild <> 0 then
+                findNextMirror(createdChild,bounces + 1)
+            else
+                ' Something Wrong!
+            end if                    
+        end if    
+    end if
+End Sub
+
+Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )   
+    if node <> 0 then
+        Dim thisTile as TileMap_.Tile Ptr = node->getTile()
+        if thisTile <> 0 then            
+            checkChild_Mirror(Mirror.NE_SW,node,bounces)
+            checkChild_Mirror(Mirror.NW_SE,node,bounces)
+            checkChild_NoMirror(node,bounces)
+        else
+            ' at edge, find out if endtile is reached.
+            if bounces = reflections then
+                Dim parentNode as PathLeaf Ptr = node->getParent()
+                if parentNode <> 0 then
+                    Dim parentTile as TileMap_.Tile Ptr = parentNode->getTile()
+                    if parentTile <> 0 then
+                        if parentTile = endTile then
+                            if node->getIncoming() = beamEndDirection then
+                                ' Found endtile!!
+                                ' Add succesful route.
+                                _pathTree->addSuccessRoute(node)
+                            end if    
+                        end if    
+                    else
+                        ' Wrong again parent must have tile that is not null!
+                    end if
+                else    
+                    ' Something wrong!
+                end if    
+            end if
+        end if
+    else
+        ' Something wrong should never receive null node.
+    end if
 End Sub    
 
 Function Robot.getPath() as MyList.List ptr
@@ -448,8 +551,7 @@ Type Board
 End Type
 
 Constructor Board( _boardWidth as integer, _boardHeight as integer )
-	if _boardWidth <= 6 and _boardHeight <= 6 then
-		
+	if _boardWidth <= 6 and _boardHeight <= 6 then		
         boardWidth = _boardWidth
 		boardHeight = _boardHeight		        
         
@@ -562,14 +664,16 @@ End Sub
 
 Sub Board.createTileMap()
 	_tilemap = new TileMap_.TileMap(boardWidth,boardHeight)
-	' create TileData for each TileMap_.Tile
 	For i as integer = 0 to (boardHeight - 1)
 		For j as integer = 0 to (boardWidth - 1)
 			Dim t as TileMap_.Tile Ptr = _tilemap->getTile(j,i)
 			if t <> 0 then
-				't->setData(new TileData(t))
                 areaMap(j,i) = 0
                 mirrorMap(j,i) = Mirror.None
+            else
+                print "Error: Null tile in tilemap!"
+                sleep
+                end
 			end if
 		Next j
 	Next i
@@ -736,11 +840,6 @@ Function Board.getSPriteY(_tileY as integer) as integer
 End Function
 
 Sub Board.drawBoardBase()
-	'for i as integer = 0 to (boardHeight - 1)
-	'	for j as integer = 0 to (boardWidth - 1)
-	'		Put (getSpriteX(j), getSpriteY(i)), tileSprites(spriteMap(j,i)), pset
-	'	next j
-	'next i
     Put (xOffset,yOffset), backGroundSprite, pset
 End Sub
 
@@ -762,7 +861,6 @@ End Sub
 Sub Board.drawTank(__robot as Robot ptr )
 	if __robot <> 0 then
 		' draw the tank
-		'Dim firstTile as TileMap_.Tile Ptr = __robot->getStartTile()
 		Dim firstDirection as Direction = __robot->getStartDirection()
 		Dim robotX as integer = __robot->getStartX() * 32 + xOffset
 		Dim robotY as integer = __robot->getStartY() * 32 + yOffset
@@ -778,7 +876,6 @@ Sub Board.drawTank(__robot as Robot ptr )
 		' draw the number of reflections at endtile
 		Dim endX as integer = __robot->getEndX() * 32 + xOffset
 		Dim endY as integer = __robot->getEndY() * 32 + yOffset
-		'Circle (endX+16,endY+16), 13, rgb(255,0,255) 'tileSprites(TileSprite.Border_None),pset
 		Draw String (endX+10,endY+10), str(__robot->getReflections())
 	end if
 End Sub
@@ -822,12 +919,17 @@ Sub Board._draw()
     for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)
         drawTank(robots(i))        
         if robots(i) <> 0 then
-            robots(i)->findAlternativePaths()
             drawBeam(robots(i))
+            sleep
+            robots(i)->findAlternativePaths()
+            'drawBeam(robots(i))
             sleep
         end if    
     next i
 End Sub
+'-----------------
+' End ** Board **
+'-----------------
 
 ' ---------------------------------------------------------------------------
 ' Methods from ** Area ** Defined here because it needs methods from Board
@@ -896,18 +998,48 @@ End Sub
 '----------------------------------------------------------------------------
 ' Methods from ** Robot ** Defined here because it needs methods from Board
 '----------------------------------------------------------------------------
+Sub Robot.checkChild_NoMirror( node as PathLeaf ptr, bounces as integer )
+    Dim thisTile as TileMap_.Tile Ptr = node->getTile()
+    Dim thisArea as Area Ptr = _board->getArea(thisTile)
+    if thisArea <> 0 then
+        if thisArea->getSize() > 1 then
+            Dim newDirection as Direction = directionMutations(Mirror.None,node->getIncoming())
+            Dim nextTile as TileMap_.Tile Ptr = node->getTile()->getNeighbor(newDirection)
+            node->addChildLeaf(nextTile,Mirror.None,newDirection)
+            Dim createdChild as PathLeaf ptr = node->getChild(Mirror.None)
+            if createdChild <> 0 then
+                findNextMirror(createdChild,bounces)
+            else
+                ' Something Wrong!
+            end if                    
+        end if    
+    else
+    end if
+End Sub
+
+Function Robot.areaHasMirror( node as PathLeaf ptr ) as Bool    
+    Dim thisTile as TileMap_.Tile Ptr = node->getTile()
+    Dim thisArea as Area Ptr = _board->getArea(thisTile)
+    Dim parentNode as PathLeaf ptr = node->getParent()
+    while parentNode <> 0
+        Dim parentMirror as Mirror = node->getParentOrientation()
+        if parentMirror <> Mirror.None then
+            Dim parentArea as Area Ptr = _board->getArea(parentNode->getTile())
+            if parentArea = thisArea then
+                return Bool.True
+            end if    
+        end if    
+        parentNode = parentNode->getParent()
+    wend
+    return Bool.False
+End Function
+
 Sub Robot.addToPath( _tile as TileMap_.Tile Ptr, newDir as Direction, currentDir as Direction )
-    '_tile->debug()
     if _tile <> 0 then
-        'Dim td as TileData Ptr = _tile->getData()
-        'if td <> 0 then
-            if _board->getMirror(_tile) > Mirror.None then
-            'if td->getMirror() <> Mirror.None then
-                reflections += 1
-            end if
-        'end if
+        if _board->getMirror(_tile) > Mirror.None then
+            reflections += 1
+        end if
         Dim newMove as Move Ptr = new Move( _tile, beamSpriteGenerator( currentDir, newDir ) )
-        'print "Adding new move Object: "; newMove
         path->addObject( newMove )
     else
     end if

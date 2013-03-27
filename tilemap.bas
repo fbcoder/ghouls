@@ -21,11 +21,9 @@ Type Tile
     public:
         Declare Constructor()
         Declare Destructor()
-        'Declare Sub setData( _dataPtr as Any Ptr )
         Declare Sub setCoord( _x as integer, _y as integer )
         Declare Sub setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )        
         Declare Function getNeighbor( _direction as Direction ) as Tile Ptr
-        'Declare Function getData() as Any Ptr
         Declare Function getCoord() as Coord Ptr
         Declare Function getCoordString() as String
         Declare Sub debug()
@@ -54,14 +52,6 @@ Sub Tile.setNeighbor( _direction as Direction, _tilePtr as Tile Ptr )
     'print directionNames(_direction) & " -> " & _tilePtr
     neighbor(_direction) = _tilePtr
 End Sub
-
-'Sub Tile.setData( _dataPtr as Any Ptr )
-'    dataPtr = _dataPtr
-'End Sub
-'
-'Function Tile.getData() as Any Ptr
-'    return dataPtr
-'End Function
 
 Function Tile.getNeighbor ( _direction as Direction ) as Tile Ptr
     if _direction >= Direction.North and _direction <= Direction.West then        
@@ -132,25 +122,21 @@ Constructor TileMap( _width as Integer, _height as Integer )
     for row as integer = 0 to (mapHeight - 1)
         for col as integer = 0 to (mapWidth - 1)
             map(col,row)->setCoord(col,row)
-
             if row = 0 then 
                 map(col,row)->setNeighbor(Direction.North,0)
             else
                 map(col,row)->setNeighbor(Direction.North,map(col, row - 1))
-            end if
-            
+            end if            
             if col = 0 then
                 map(col,row)->setNeighbor(Direction.West,0)
             else        
                 map(col,row)->setNeighbor(Direction.West,map(col - 1, row))
-            end if
-            
+            end if            
             if row = (mapHeight - 1) then
                 map(col,row)->setNeighbor(Direction.South,0)
             else
                 map(col,row)->setNeighbor(Direction.South,map(col, row + 1))
-            end if
-            
+            end if            
             if col = (mapWidth - 1) then
                 map(col,row)->setNeighbor(Direction.East,0)
             else
