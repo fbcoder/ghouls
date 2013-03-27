@@ -6,6 +6,7 @@
 Randomize Timer
 
 Enum Mirror
+    Undefined = -1
     None = 0
     NE_SW = 1
     NW_SE = 2
@@ -181,11 +182,13 @@ Type PathTree
         ' first Leaf in the tree
         root as PathLeaf ptr = 0
         routeList as MyList.List ptr = 0
+        debugFailedRoutes as Bool = Bool.False
     public:
         Declare Constructor( _tile as TileMap_.Tile Ptr, _direction as Direction )
         Declare Function getRoot( ) as PathLeaf ptr
         Declare Sub addSuccessRoute ( leaf as PathLeaf Ptr )
         Declare Sub printRoutes ()
+        Declare Sub addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.Undefined, failMsg as String )
 End Type    
 
 Constructor PathTree( _tile as TileMap_.Tile Ptr, _direction as Direction )
@@ -237,8 +240,12 @@ Sub PathTree.printRoutes ()
     else
         print "No Routes" 
     end if
-End Sub    
+End Sub
 
+Sub PathTree.addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.Undefined, failMsg as String )
+    if debugFailedRoutes = Bool.True then
+    end if    
+End Sub
 '---------------------------------
 ' Move object used by Robot/Tank
 '---------------------------------
@@ -265,6 +272,7 @@ Type Robot
         startY as integer
         endX as integer
         endY as integer
+        tempMirrorMap(TileMap_.DEFAULT_MAPWIDTH,TileMap_.DEFAULT_MAPHEIGHT) as Mirror
         beamStartDirection as Direction
         beamEndDirection as Direction
         startTile as TileMap_.Tile Ptr = 0
@@ -410,8 +418,12 @@ Sub Robot.checkChild_Mirror( _mirror as Mirror, node as PathLeaf ptr, bounces as
                 findNextMirror(createdChild,bounces + 1)
             else
                 ' Something Wrong!
-            end if                    
-        end if    
+            end if
+        else
+            _pathTree->addFailedRoute(node,_mirror,"Can't have two mirrors in one area.")            
+        end if
+    else
+        _pathTree->addFailedRoute(node,_mirror,"Too much reflections already to reach endtile.")
     end if
 End Sub
 
@@ -441,7 +453,9 @@ Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )
                     end if
                 else    
                     ' Something wrong!
-                end if    
+                end if
+            else
+                _pathTree->addFailedRoute(node,,"Reaches edge with too little reflections.")
             end if
         end if
     else
@@ -987,6 +1001,8 @@ Sub Area.placeRandomMirror()
                 'End if
             Else
                 print "Error: no TileMap_.Tile object!"
+                sleep
+                end
             End if
             exit while
         End if
@@ -1011,25 +1027,48 @@ Sub Robot.checkChild_NoMirror( node as PathLeaf ptr, bounces as integer )
                 findNextMirror(createdChild,bounces)
             else
                 ' Something Wrong!
-            end if                    
+            end if
+        else
+            _pathTree->addFailedRoute(node,Mirror.None,"Areas of one tile can't be skipped without placing a mirror.")
         end if    
     else
+        print "Error: Tile Has no Mirror"
+        sleep
+        end
     end if
 End Sub
 
 Function Robot.areaHasMirror( node as PathLeaf ptr ) as Bool    
     Dim thisTile as TileMap_.Tile Ptr = node->getTile()
     Dim thisArea as Area Ptr = _board->getArea(thisTile)
-    Dim parentNode as PathLeaf ptr = node->getParent()
-    while parentNode <> 0
-        Dim parentMirror as Mirror = node->getParentOrientation()
-        if parentMirror <> Mirror.None then
-            Dim parentArea as Area Ptr = _board->getArea(parentNode->getTile())
-            if parentArea = thisArea then
-                return Bool.True
+    if thisArea = 0 then
+        print "Error: thisTile is not part of an area!"
+        sleep
+        end
+    end if    
+    Dim thisNode as PathLeaf ptr = node    
+    while thisNode <> 0
+        Dim parentNode as PathLeaf ptr = thisNode->getParent()
+        if parentNode <> 0 then
+            Dim parentMirror as Mirror = thisNode->getParentOrientation()
+            if parentMirror <> Mirror.None then
+                Dim parentTile as TileMap_.Tile Ptr = parentNode->getTile()
+                if parentTile <> 0 then
+                    Dim parentArea as Area Ptr = _board->getArea(parentTile)
+                    if parentArea = 0 then
+                        print "Error: parentTile is not part of an area!"
+                        sleep
+                        end
+                    end if    
+                    if parentArea = thisArea then
+                        if parentTile <> thisTile then
+                            return Bool.True
+                        end if 
+                    end if
+                end if
             end if    
-        end if    
-        parentNode = parentNode->getParent()
+        end if 
+        thisNode = parentNode
     wend
     return Bool.False
 End Function
@@ -1098,7 +1137,7 @@ End Sub
 '------------------------
 ScreenRes 640,480,32
 
-Dim w as integer = 3
+Dim w as integer = 4
 Dim h as integer = 3
 Dim b as Board Ptr = new Board(w,h)
 Cls
