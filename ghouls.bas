@@ -3,6 +3,8 @@
 #include once "includes/direction.bas"
 #include once "tilemap.bas"
 
+Const NEWLINE = !"\n"
+
 Randomize Timer
 
 Enum Mirror
@@ -109,7 +111,19 @@ End Sub
 Type RouteStep
     _tile as TileMap_.Tile Ptr
     _mirror as Mirror
-End Type    
+End Type
+
+Type FailedRoute
+    public:
+        failureMsg as String
+        routeList as MyList.List ptr
+        Declare Constructor ( _failureMsg as String, _routeList as MyList.List Ptr )
+End Type
+
+Constructor FailedRoute ( _failureMsg as String, _routeList as MyList.List Ptr )
+    failureMsg = _failureMsg
+    routeList = _routeList
+End Constructor
 
 Type PathLeaf
     private:
@@ -182,13 +196,17 @@ Type PathTree
         ' first Leaf in the tree
         root as PathLeaf ptr = 0
         routeList as MyList.List ptr = 0
-        debugFailedRoutes as Bool = Bool.False
+        failList as MyList.List ptr = 0
+        debugFailedRoutes as Bool = Bool.True
+        Declare Function getRouteList ( leaf as PathLeaf Ptr ) as MyList.List Ptr
+        Declare Function printRoute ( listNode as MyList.ListNode Ptr ) as String
     public:
         Declare Constructor( _tile as TileMap_.Tile Ptr, _direction as Direction )
         Declare Function getRoot( ) as PathLeaf ptr
         Declare Sub addSuccessRoute ( leaf as PathLeaf Ptr )
-        Declare Sub printRoutes ()
+        Declare Function getRouteString () as String
         Declare Sub addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.Undefined, failMsg as String )
+        Declare Sub printRoutesToFile ( fileName as String )
 End Type    
 
 Constructor PathTree( _tile as TileMap_.Tile Ptr, _direction as Direction )
@@ -201,51 +219,88 @@ Function PathTree.getRoot() as PathLeaf Ptr
     return root
 End Function    
 
-Sub PathTree.addSuccessRoute (leaf as PathLeaf Ptr)    
-    if routeList = 0 then
-        routeList = new MyList.List()
-    end if
+Function PathTree.getRouteList(leaf as PathLeaf Ptr) as MyList.List Ptr
     Dim thisRoute as MyList.List Ptr = new MyList.List()
     Dim thisLeaf as PathLeaf Ptr = leaf
     While thisLeaf->getParent() <> 0      
         thisRoute->addObject(new RouteStep(thisLeaf->getParent()->getTile(),thisLeaf->getParentOrientation()))
         thisLeaf = thisLeaf->getParent()
     Wend
+    return thisRoute
+End Function
+
+Sub PathTree.addSuccessRoute (leaf as PathLeaf Ptr)    
+    if routeList = 0 then
+        routeList = new MyList.List()
+    end if
+    Dim thisRoute as MyList.List Ptr = getRouteList(leaf)
     routeList->addObject(thisRoute)
 End Sub    
 
-Sub PathTree.printRoutes ()
+Function PathTree.printRoute ( listNode as MyList.ListNode Ptr ) as String
+    Dim returnString as String = ""    
+    while listNode <> 0
+        Dim _routeStep as RouteStep ptr = listNode->getObject()
+        if _routeStep <> 0 then            
+            returnString &= _routeStep->_tile->getCoordString() & NEWLINE
+            returnString &= mirrorText(_routeStep->_mirror) & NEWLINE
+            returnString &= "-->" & NEWLINE
+        end if
+        listNode = listNode->getNext()
+    wend 
+    return returnString
+End Function
+
+Function PathTree.getRouteString () as String    
     Dim routes as integer = 0
+    Dim returnString as String = ""    
     if routeList <> 0 then
-        print "Found "; routeList->getSize(); " routes."
+        returnString &= "Found " & str(routeList->getSize()) & " succesful route(s)." & NEWLINE
         Dim thisRoute as MyList.ListNode ptr = routeList->getFirst()
         while thisRoute <> 0
             Dim _route as MyList.List ptr = thisRoute->getObject()
             if _route <> 0 then
                 routes += 1
-                print "Route ";routes
-                Dim thisStep as MyList.ListNode ptr = _route->getFirst()
-                while thisStep <> 0
-                    Dim _routeStep as RouteStep ptr = thisStep->getObject()
-                    if _routeStep <> 0 then
-                        print "----"
-                        print _routeStep->_tile->getCoordString()
-                        print mirrorText(_routeStep->_mirror)                        
-                    end if
-                    thisStep = thisStep->getNext()
-                wend                
+                returnString &= "Route " & str(routes) & NEWLINE
+                returnString &= printRoute(_route->getFirst())                                            
             end if
             thisRoute = thisRoute->getNext()
-        wend    
+        wend
+        returnString &= !"\r\n"
     else
-        print "No Routes" 
+        returnString &= "No Routes!" 
     end if
-End Sub
-
-Sub PathTree.addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.Undefined, failMsg as String )
     if debugFailedRoutes = Bool.True then
     end if    
+    return returnString
+End Function
+
+Sub PathTree.addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.Undefined, failMsg as String = "" )
+    if debugFailedRoutes = Bool.True then
+        if failList = 0 then
+            failList = new MyList.List()
+        end if
+        if _mirror <> Mirror.Undefined then
+            failMsg = "Failed to add " & mirrorText(_mirror) & ". (" & failMsg & ")"
+        else
+            failMsg = "Could not reach endTile (" & failMsg & ")"
+        end if    
+        Dim routeList as myList.List Ptr = getRouteList(leaf)
+        failList->addObject(new FailedRoute(failMsg,routeList))
+    end if    
 End Sub
+
+Sub PathTree.printRoutesToFile ( fileName as String )
+    if fileName <> "" then
+        open fileName for output as #1
+        print #1, getRouteString
+        close #1
+    else    
+        print "Cannot create file with empty name."
+        sleep
+        end
+    end if    
+End Sub    
 '---------------------------------
 ' Move object used by Robot/Tank
 '---------------------------------
@@ -404,7 +459,9 @@ Sub Robot.findAlternativePaths ()
     '@TODO: fix and add findNextMirror here!
     _pathTree = new PathTree(startTile,beamStartDirection)
     findNextMirror( _pathTree->getRoot(), 0 )
-    _pathTree->printRoutes()
+    print _pathTree->getRouteString()
+    Dim fileName as String = "routes_for_tank_" & str(id) & ".txt"
+    _pathTree->printRoutesToFile(fileName)
 End Sub
 
 Sub Robot.checkChild_Mirror( _mirror as Mirror, node as PathLeaf ptr, bounces as integer )
@@ -928,11 +985,12 @@ Sub Board.drawBeam( __robot as Robot ptr )
 End Sub
 
 Sub Board._draw()
-	drawBoardBase()
-	drawAllMirrors()
-    for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)
-        drawTank(robots(i))        
+    for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)        
         if robots(i) <> 0 then
+            cls
+            drawBoardBase()
+            drawAllMirrors()
+            drawTank(robots(i))        
             drawBeam(robots(i))
             sleep
             robots(i)->findAlternativePaths()
