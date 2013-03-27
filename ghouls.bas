@@ -3,7 +3,7 @@
 #include once "includes/direction.bas"
 #include once "tilemap.bas"
 
-Const NEWLINE = !"\n"
+Const NEWLINE = !"\r\n"
 
 Randomize Timer
 
@@ -30,9 +30,9 @@ Enum TileSprite
 End Enum
 
 Dim Shared mirrorText(3) as String
-mirrorText(0) = "None"
-mirrorText(1) = "NE-SW ( / )"
-mirrorText(2) = "NW_SE ( \ )"
+mirrorText(0) = " * "
+mirrorText(1) = " / "
+mirrorText(2) = " \ "
 
 ' Type forwarding for Board
 Type BoardPtr as Board Ptr
@@ -242,9 +242,9 @@ Function PathTree.printRoute ( listNode as MyList.ListNode Ptr ) as String
     while listNode <> 0
         Dim _routeStep as RouteStep ptr = listNode->getObject()
         if _routeStep <> 0 then            
-            returnString &= _routeStep->_tile->getCoordString() & NEWLINE
-            returnString &= mirrorText(_routeStep->_mirror) & NEWLINE
-            returnString &= "-->" & NEWLINE
+            returnString &= _routeStep->_tile->getCoordString() & "--"
+            returnString &= "[" & mirrorText(_routeStep->_mirror) & "]-->"
+            'returnString &= "----" & NEWLINE            
         end if
         listNode = listNode->getNext()
     wend 
@@ -261,8 +261,11 @@ Function PathTree.getRouteString () as String
             Dim _route as MyList.List ptr = thisRoute->getObject()
             if _route <> 0 then
                 routes += 1
+                returnString &= "****" & NEWLINE              
                 returnString &= "Route " & str(routes) & NEWLINE
-                returnString &= printRoute(_route->getFirst())                                            
+                returnString &= "****" & NEWLINE
+                returnString &= printRoute(_route->getFirst())
+                returnString &= NEWLINE
             end if
             thisRoute = thisRoute->getNext()
         wend
@@ -271,6 +274,22 @@ Function PathTree.getRouteString () as String
         returnString &= "No Routes!" 
     end if
     if debugFailedRoutes = Bool.True then
+        if failList <> 0 then
+            returnString &= "Found " & str(failList->getSize()) & " invalid paths." & NEWLINE
+            Dim failedRouteNode as MyList.ListNode Ptr = failList->getFirst()                        
+            while failedRouteNode <> 0
+                Dim thisFailedRoute as FailedRoute ptr = failedRouteNode->getObject()
+                if thisFailedRoute <> 0 then
+                    returnString &= printRoute(thisFailedRoute->routeList->getFirst())
+                    returnString &= thisFailedRoute->failureMsg & NEWLINE
+                    returnString &= NEWLINE
+                end if    
+                failedRouteNode = failedRouteNode->getNext()
+            wend    
+            
+        else
+            returnString &= "No failed Routes" & NEWLINE
+        end if    
     end if    
     return returnString
 End Function
@@ -459,7 +478,7 @@ Sub Robot.findAlternativePaths ()
     '@TODO: fix and add findNextMirror here!
     _pathTree = new PathTree(startTile,beamStartDirection)
     findNextMirror( _pathTree->getRoot(), 0 )
-    print _pathTree->getRouteString()
+    'print _pathTree->getRouteString()
     Dim fileName as String = "routes_for_tank_" & str(id) & ".txt"
     _pathTree->printRoutesToFile(fileName)
 End Sub
@@ -503,6 +522,8 @@ Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )
                                 ' Found endtile!!
                                 ' Add succesful route.
                                 _pathTree->addSuccessRoute(node)
+                            else
+                                 _pathTree->addFailedRoute(node,,"Tile is right, direction however is not.")
                             end if    
                         end if    
                     else
