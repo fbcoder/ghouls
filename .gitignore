@@ -162,6 +162,7 @@ pip-log.txt
 # Mac crap
 .DS_Store
 
-# FreeBASIC
+# Specific to this FreeBASIC project
 *.exe
 *.txt
+boards/

@@ -1,6 +1,6 @@
 ' -------------------
 ' Simple Linked List
-' fbcoder 2010-2012
+' fbcoder 2010-2013
 ' -------------------
 #include once "bool.bas"
 
@@ -136,5 +136,56 @@ Destructor List ()
         iteratedNode = NextNode
     Wend
 End Destructor
+
+Type Iterator
+    private:
+        _list as List Ptr
+        currentNode as ListNode Ptr
+    public:
+        Declare Constructor ( __list as List Ptr )
+        Declare Function getNextObject() as any ptr
+        Declare Function hasNextObject() as Bool
+End Type    
+
+Constructor Iterator( __list as List Ptr )
+    if __list <> 0 then
+        _list = __list
+        currentNode = _list->getFirst()
+    else    
+        print "Can't construct iterator without a list!"
+        sleep
+        end
+    end if    
+End Constructor
+
+Function Iterator.getNextObject() as any ptr        
+    if currentNode <> 0 then
+        Dim thisNode as ListNode Ptr = currentNode
+        ' move iterator to next node
+        currentNode = currentNode->getNext()
+        ' return the object in old currentNode
+        if thisNode->getObject <> 0 then
+            return thisNode->getObject()
+        else
+            print "Error: Node must have object!"
+            sleep
+            end
+        end if
+    end if
+    return 0
+End Function
+
+Function Iterator.hasNextObject() as Bool
+    if currentNode <> 0 then
+        if currentNode->getObject() <> 0 then
+            return Bool.True
+        else
+            print "Error: Node must have object!"
+            sleep
+            end
+        end if
+    end if
+    return Bool.False
+End Function
 
 End Namespace

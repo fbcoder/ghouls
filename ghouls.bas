@@ -3,7 +3,10 @@
 #include once "includes/direction.bas"
 #include once "tilemap.bas"
 
+' New line for Windows
 Const NEWLINE = !"\r\n"
+'New line for Linux
+'Const NEWLINE = !"\n"
 
 Randomize Timer
 
@@ -200,6 +203,7 @@ Type PathTree
         debugFailedRoutes as Bool = Bool.True
         Declare Function getRouteList ( leaf as PathLeaf Ptr ) as MyList.List Ptr
         Declare Function printRoute ( listNode as MyList.ListNode Ptr ) as String
+        Declare Function printRoute ( _list as MyList.List Ptr ) as String
     public:
         Declare Constructor( _tile as TileMap_.Tile Ptr, _direction as Direction )
         Declare Function getRoot( ) as PathLeaf ptr
@@ -237,6 +241,20 @@ Sub PathTree.addSuccessRoute (leaf as PathLeaf Ptr)
     routeList->addObject(thisRoute)
 End Sub    
 
+Function PathTree.printRoute ( _list as MyList.List Ptr ) as String
+    Dim returnString as String = ""
+    Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(_list)
+    while thisIterator->hasNextObject() = Bool.True
+        Dim _routeStep as RouteStep ptr = thisIterator->getNextObject()
+        if _routeStep <> 0 then            
+            returnString &= _routeStep->_tile->getCoordString() & "--"
+            returnString &= mirrorText(_routeStep->_mirror) & "-->"            
+        end if
+    wend
+    delete thisIterator
+    return returnString
+End Function    
+
 Function PathTree.printRoute ( listNode as MyList.ListNode Ptr ) as String
     Dim returnString as String = ""    
     while listNode <> 0
@@ -264,8 +282,7 @@ Function PathTree.getRouteString () as String
                 returnString &= "****" & NEWLINE              
                 returnString &= "Route " & str(routes) & NEWLINE
                 returnString &= "****" & NEWLINE
-                returnString &= printRoute(_route->getFirst())
-                returnString &= NEWLINE
+                returnString &= printRoute(_route) & "E" & NEWLINE
             end if
             thisRoute = thisRoute->getNext()
         wend
@@ -280,9 +297,8 @@ Function PathTree.getRouteString () as String
             while failedRouteNode <> 0
                 Dim thisFailedRoute as FailedRoute ptr = failedRouteNode->getObject()
                 if thisFailedRoute <> 0 then
-                    returnString &= printRoute(thisFailedRoute->routeList->getFirst())
+                    returnString &= printRoute(thisFailedRoute->routeList) & "X" & NEWLINE
                     returnString &= thisFailedRoute->failureMsg & NEWLINE
-                    returnString &= NEWLINE
                 end if    
                 failedRouteNode = failedRouteNode->getNext()
             wend    
@@ -309,9 +325,10 @@ Sub PathTree.addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.U
     end if    
 End Sub
 
+' Append the routes to the board file.
 Sub PathTree.printRoutesToFile ( fileName as String )
     if fileName <> "" then
-        open fileName for output as #1
+        open fileName for append as #1
         print #1, getRouteString
         close #1
     else    
@@ -356,6 +373,7 @@ Type Robot
         beamSpriteGenerator(4,4) as TileSprite
         directionMutations(3,4) as Direction 
         Declare Sub addToPath( _tile as TileMap_.Tile Ptr, currentDir as Direction, prevDir as Direction )
+        Declare Function getRouteDescription() as String
     public:
         Declare Constructor( _id as integer, _startTile as TileMap_.Tile Ptr, startDir as Direction, __board as BoardPtr )
         Declare Destructor()
@@ -472,17 +490,6 @@ Function Robot.getMirrorString( oldDir as Direction, newDir as Direction, orient
     return mirrorChar & "-->[" & directionNames(oldDir) & "->" & directionNames(newDir) & "]-->"
 End Function
 
-Sub Robot.findAlternativePaths ()
-    print "start following path from "; startTile->getCoordString(); " to "; endTile->getCoordString();" in direction: "; beamStartDirection
-    'followLine (startTile, beamStartDirection, 0, 0, "")
-    '@TODO: fix and add findNextMirror here!
-    _pathTree = new PathTree(startTile,beamStartDirection)
-    findNextMirror( _pathTree->getRoot(), 0 )
-    'print _pathTree->getRouteString()
-    Dim fileName as String = "routes_for_tank_" & str(id) & ".txt"
-    _pathTree->printRoutesToFile(fileName)
-End Sub
-
 Sub Robot.checkChild_Mirror( _mirror as Mirror, node as PathLeaf ptr, bounces as integer )
     if bounces < reflections then
         if areaHasMirror(node) = Bool.False then            
@@ -581,6 +588,18 @@ Function Robot.getEndY() as Integer
 	return endY
 End Function
 
+Function Robot.getRouteDescription() as String
+    dim returnString as String
+    returnString &= "########" & NEWLINE
+    returnString &= "Tank  : " & str(id) & NEWLINE
+    returnString &= "From start @ " & startTile->getCoordString() & NEWLINE
+    returnString &= directionNames(beamStartDirection) & "wards in " & str(reflections) & " bounces." & NEWLINE
+    returnString &= "To finish  @ " & endTile->getCoordString() & NEWLINE
+    returnString &= "Facing " & directionNames(beamEndDirection) & "." & NEWLINE
+    returnString &= "########" & NEWLINE
+    return returnString
+End Function    
+
 '-------------
 ' ** BOARD! **
 '-------------
@@ -591,6 +610,7 @@ Type Board
         areaMap(TileMap_.DEFAULT_MAPWIDTH,TileMap_.DEFAULT_MAPHEIGHT) as Area Ptr
         boardWidth as integer
         boardHeight as integer
+        boardFileName as String
 
         ' SET THE RIGHT NUMBER HERE!!
         tileSprites(30) as any Ptr
@@ -628,6 +648,7 @@ Type Board
         Declare Sub addArea( newArea as Area Ptr )
         Declare Sub createAreas()
         Declare Sub placeRandomMirrors()
+        Declare Sub printBoardToFile()
     public:
         Declare Constructor( _boardWidth as integer, _boardHeight as integer )
         Declare Destructor()
@@ -635,11 +656,12 @@ Type Board
         Declare Sub setOffset( _xOffset as integer, yOffset as integer )
         Declare Function getWidth () as integer
         Declare Function getHeight () as integer
+        Declare Function getBoardFileName() as String
         
         Declare Function getArea ( _tile as TileMap_.Tile Ptr ) as Area Ptr
         Declare Function getMirror ( _tile as TileMap_.Tile Ptr ) as Mirror
         Declare Sub setArea ( _tile as TileMap_.Tile Ptr, _area as Area Ptr )
-        Declare Sub setMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
+        Declare Sub setMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )        
 End Type
 
 Constructor Board( _boardWidth as integer, _boardHeight as integer )
@@ -651,6 +673,8 @@ Constructor Board( _boardWidth as integer, _boardHeight as integer )
         createTileMap()
         createAreas()        
         placeRandomMirrors()
+        boardFileName = "boards/board " & date & "_" & str(int(timer)) & ".txt"
+        printBoardToFile()
         
         ' Prepare the sprites
         createBackGroundSprite()        
@@ -1020,6 +1044,75 @@ Sub Board._draw()
         end if    
     next i
 End Sub
+
+Sub Board.printBoardToFile()
+    open boardFileName for output as #1
+    for i as integer = 0 to boardHeight - 1            
+        Dim coordLine as String = "    "
+        if i = 0 then
+            for j as integer = 0 to boardWidth - 1            
+                coordLine &= " " & str(j) & "  "
+            next j    
+            print #1, coordLine
+        end if        
+        Dim line1 as String = ""        
+        Dim line2 as String = ""
+        Dim line3 as String = ""
+        for j as integer = 0 to boardWidth - 1            
+            Dim n as Bool = Bool.False
+            Dim e as Bool = Bool.False
+            Dim celBody as String = "   "
+            if mirrorMap(j,i) = Mirror.NE_SW then celBody = " / "
+            if mirrorMap(j,i) = Mirror.NW_SE then celBody = " \ "
+            Dim _tile as TileMap_.Tile Ptr = _tileMap->getTile(j,i)
+            if _tile->getNeighbor(Direction.North) = 0 then
+                n = Bool.True
+            else
+                if getArea(_tile->getNeighbor(Direction.North)) <> getArea(_tile) then
+                    n = Bool.True                
+                end if
+            end if    
+            if _tile->getNeighbor(Direction.East) = 0 then
+                e = Bool.True
+            else
+                if getArea(_tile->getNeighbor(Direction.East)) <> getArea(_tile) then
+                    e = Bool.True                
+                end if
+            end if    
+            if _tile->getNeighbor(Direction.South) = 0 then
+                line3 &= "---+"
+            end if    
+            if _tile->getNeighbor(Direction.West) = 0 then
+                line1 = "+" & line1
+                line2 = "|" & line2
+                if _tile->getNeighbor(Direction.South) = 0 then
+                    line3 = "+" & line3
+                end if
+            else                
+            end if
+            if n = bool.True then
+                line1 &= "---+"
+            else
+                line1 &= "   +"
+            end if
+            if e = bool.True then
+                line2 &= celBody & "|"
+            else   
+                line2 &= celBody & " "
+            end if
+        next j
+        print #1, "   " & line1
+        print #1, " " & str(i) & " " & line2
+        if line3 <> "" then
+            print #1, "   " & line3
+        end if        
+    next i    
+    close #1
+End Sub
+
+Function Board.getBoardFileName() as String
+    return boardFileName
+End Function
 '-----------------
 ' End ** Board **
 '-----------------
@@ -1209,6 +1302,20 @@ Sub Robot.shootBeam()
     'print "** Debug Path after construction: "
     'path->debug()
     'sleep
+End Sub
+
+Sub Robot.findAlternativePaths ()
+    'print getRouteDescription()
+    'followLine (startTile, beamStartDirection, 0, 0, "")
+    '@TODO: fix and add findNextMirror here!
+    _pathTree = new PathTree(startTile,beamStartDirection)
+    findNextMirror( _pathTree->getRoot(), 0 )
+    'print _pathTree->getRouteString()
+    'Dim fileName as String = "routes_for_tank_" & str(id) & ".txt"    
+    open _board->getBoardFileName() for append as #1
+        print #1, getRouteDescription()
+    close #1
+    _pathTree->printRoutesToFile(_board->getBoardFileName())
 End Sub
 
 '------------------------
