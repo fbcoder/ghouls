@@ -164,7 +164,7 @@ Function Iterator.getNextObject() as any ptr
         ' move iterator to next node
         currentNode = currentNode->getNext()
         ' return the object in old currentNode
-        if thisNode->getObject <> 0 then
+        if thisNode->getObject() <> 0 then
             return thisNode->getObject()
         else
             print "Error: Node must have object!"

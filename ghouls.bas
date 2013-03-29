@@ -198,20 +198,35 @@ End Function
 Type RouteStep
     _tile as TileMap_.Tile Ptr
     _mirror as Mirror
+    Declare Destructor()    
 End Type
+
+Destructor RouteStep()
+    _tile = 0    
+End Destructor
 
 Type FailedRoute
     private:        
     public:
         failureMsg as String
         routeList as MyList.List ptr
-        Declare Constructor ( _failureMsg as String, _routeList as MyList.List Ptr )
+        Declare Constructor( _failureMsg as String, _routeList as MyList.List Ptr )
+        Declare Destructor()
 End Type
 
-Constructor FailedRoute ( _failureMsg as String, _routeList as MyList.List Ptr )
+Constructor FailedRoute( _failureMsg as String, _routeList as MyList.List Ptr )
     failureMsg = _failureMsg
     routeList = _routeList    
 End Constructor
+
+Destructor FailedRoute()
+    Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(routeList)
+    while thisIterator->hasNextObject <> Bool.False
+        Dim thisStep as RouteStep Ptr = thisIterator->getNextObject()
+        delete thisStep
+    wend
+    delete thisIterator
+End Destructor
 
 Type PathLeaf
     private:
@@ -292,8 +307,10 @@ Type PathTree
         Declare Function printRoute ( _list as MyList.List Ptr ) as String
         Declare Function findRouteTile( tileToFind as TileMap_.Tile Ptr ) as RouteTile Ptr
         Declare Sub addToTileList( _route as MyList.List Ptr )
+        Declare Sub deleteLeaf( leaf as PathLeaf Ptr )
     public:
         Declare Constructor( _tile as TileMap_.Tile Ptr, _direction as Direction )
+        Declare Destructor()
         Declare Function getRoot( ) as PathLeaf ptr
         Declare Sub addSuccessRoute ( leaf as PathLeaf Ptr )
         Declare Function getRouteString () as String
@@ -307,6 +324,61 @@ Constructor PathTree( _tile as TileMap_.Tile Ptr, _direction as Direction )
         root = new PathLeaf(_tile,Mirror.None,0,_direction)
     end if
 End Constructor
+
+Destructor PathTree()
+    ' delete leafs of the tree
+    deleteLeaf(root)
+    
+    ' delete success routes
+    if routeList <> 0 then        
+        'print "Deleting routeList"
+        Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(routeList)
+        while thisIterator->hasNextObject() = Bool.True
+            Dim thisRoute as MyList.List Ptr = thisIterator->getNextObject()
+            if thisRoute <> 0 then                
+                'print "Deleting route of "; str(thisRoute->getSize()); " steps"
+                Dim listIterator as MyList.Iterator Ptr = new MyList.Iterator(thisRoute)
+                'print "a"
+                while listIterator->hasNextObject() = Bool.True                    
+                    Dim thisStep as RouteStep Ptr = listIterator->getNextObject()
+                    'print thisStep
+                    'sleep
+                    if thisStep <> 0 then
+                        'print "Deleting RouteStep" 
+                        delete thisStep
+                        'print "Done" 
+                    end if 
+                wend
+                delete listIterator
+                delete thisRoute
+                'print "Done"
+            end if
+        wend
+        delete thisIterator
+        delete routeList
+        'print "Done"
+    end if
+  
+    'delete failed routes    
+    if failList <> 0 then
+        Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(failList)
+        while thisIterator->hasNextObject() <> Bool.False
+            Dim thisFailedRoute as FailedRoute Ptr = thisIterator->getNextObject()
+            delete thisFailedRoute
+        wend
+        delete failList
+        delete thisIterator
+    end if
+End Destructor
+
+Sub PathTree.deleteLeaf( leaf as PathLeaf Ptr )
+    if leaf <> 0 then        
+        for i as integer = 0 to 2        
+            deleteLeaf(leaf->getChild(i))
+        next i    
+        delete leaf
+    end if
+End Sub
 
 Function PathTree.getRoot() as PathLeaf Ptr
     return root
@@ -639,7 +711,10 @@ Destructor Robot()
             iteratedNode = NextNode
         Wend
         delete path
-    end if    
+    end if
+    if _pathTree <> 0 then
+        delete _pathTree
+    end if
 End Destructor
 
 Function Robot.getMirrorString( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String 
@@ -677,17 +752,20 @@ Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )
             if _mirrorMap->canPlaceMirror(thisTile,Mirror.NE_SW) = Bool.True then
                 checkChild_Mirror(Mirror.NE_SW,node,bounces)
             else
-                _pathTree->addFailedRoute(node,Mirror.NE_SW,"Mirror placement invalidated by MirrorPlacementMap. " & _mirrorMap->getPossibilityString(thisTile))
+                Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorMap->getPossibilityString(thisTile)
+                _pathTree->addFailedRoute(node,Mirror.NE_SW,failMsg)
             end if
-            if _mirrorMap->canPlaceMirror(thisTile,Mirror.NW_SE) = Bool.True then
+            if _mirrorMap->canPlaceMirror(thisTile,Mirror.NW_SE) = Bool.True then                
                 checkChild_Mirror(Mirror.NW_SE,node,bounces)
             else
-                _pathTree->addFailedRoute(node,Mirror.NW_SE,"Mirror placement invalidated by MirrorPlacementMap. " & _mirrorMap->getPossibilityString(thisTile))                
+                Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorMap->getPossibilityString(thisTile)
+                _pathTree->addFailedRoute(node,Mirror.NW_SE,failMsg)                
             end if
-            if _mirrorMap->canPlaceMirror(thisTile,Mirror.None) = Bool.True then
+            if _mirrorMap->canPlaceMirror(thisTile,Mirror.None) = Bool.True then                
                 checkChild_NoMirror(node,bounces)
             else
-                _pathTree->addFailedRoute(node,Mirror.None,"Mirror placement invalidated by MirrorPlacementMap. " & _mirrorMap->getPossibilityString(thisTile))
+                Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorMap->getPossibilityString(thisTile)
+                _pathTree->addFailedRoute(node,Mirror.None,failMsg)
             end if    
         else
             ' at edge, find out if endtile is reached.
@@ -1481,7 +1559,9 @@ Sub Robot.findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr )
     '@TODO: fix and add findNextMirror here!
     if possibilityMap <> 0 then
         _mirrorMap = possibilityMap
-        _pathTree = new PathTree(startTile,beamStartDirection)
+        if _pathTree = 0 then
+            _pathTree = new PathTree(startTile,beamStartDirection)
+        end if
         findNextMirror( _pathTree->getRoot(), 0 )
         'print _pathTree->getRouteString()
         'Dim fileName as String = "routes_for_tank_" & str(id) & ".txt"    
@@ -1490,6 +1570,9 @@ Sub Robot.findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr )
         close #1
         _pathTree->printRoutesToFile(_board->getBoardFileName())
         _pathTree->writeSuccessRoutesToMap(possibilityMap)
+        
+        delete _pathTree
+        _pathTree = 0
     else
         print "Error: can't start pathfinding with null mirrormap!"
         sleep
