@@ -111,12 +111,97 @@ End Sub
 '---------------------
 ' Path Tree and Leafs
 '---------------------
+'Type AreaMap_
+'    private:
+'        map(6,6) as Area Ptr
+'        _width as integer
+'        _height as integer
+'    public:
+'        Declare Constructor ( w as integer, h as integer )
+'        Declare Sub setArea ( _tile as TileMap_.Tile, _area as Area Ptr )
+'        Declare Function getArea ( _tile as TileMap_.Tile ) as _Area Ptr
+'End Type    
+
+Type MirrorPlacementMap
+    private:
+        map(6,6,3) as Bool
+        _width as integer
+        _height as integer
+    public:
+        Declare Constructor ( w as integer, h as integer )
+        Declare Sub removePossibleMirror( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
+        Declare Function canPlaceMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
+        Declare Function getPossibilityString ( _tile as TileMap_.Tile Ptr ) as String
+End Type    
+
+Constructor MirrorPlacementMap ( w as integer, h as integer )
+    for i as integer = 0 to _height - 1
+        for j as integer = 0 to _width - 1
+            for h as integer = 0 to 2
+                map(j,i,h) = Bool.True
+            next h
+        next j
+    next i    
+End Constructor
+
+Sub MirrorPlacementMap.removePossibleMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
+    map(_tile->getCoord()->x,_tile->getCoord()->y,_mirror) = Bool.False
+End Sub    
+    
+Function MirrorPlacementMap.canPlaceMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
+    return map(_tile->getCoord()->x,_tile->getCoord()->y,_mirror)
+End Function
+
+Function MirrorPlacementMap.getPossibilityString ( _tile as TileMap_.Tile Ptr ) as String
+    Dim returnString as String = "possible ["
+    for i as integer = 0 to 2
+        if map(_tile->getCoord()->x,_tile->getCoord()->y,i) = Bool.True then
+            returnString &=mirrorText(i)
+        end if    
+    next i    
+    returnString & = "]"
+    return returnString
+End Function    
+
+Type RouteTile
+    _tile as TileMap_.Tile Ptr
+    inRoutes as integer = 0
+    _mirror(3) as Bool
+    Declare Constructor( __tile as TileMap_.Tile Ptr, __mirror as Mirror )
+    Declare Sub addMirror( __mirror as Mirror )
+    Declare Function inAllRoutes( totalRoutes as integer ) as Bool
+End Type
+
+Constructor RouteTile( __tile as TileMap_.Tile Ptr, __mirror as Mirror )
+    'print "adding routeTile"; __mirror
+    _tile = __tile
+    for i as integer = 0 to 2
+        _mirror(i) = Bool.False
+    next i
+    _mirror(__mirror) = Bool.True
+    inRoutes = 1
+End Constructor
+
+Sub RouteTile.addMirror( __mirror as Mirror )
+     'print "adding mirror"; __mirror
+    _mirror(__mirror) = Bool.True
+    inRoutes += 1
+End Sub
+
+Function RouteTile.inAllRoutes( totalRoutes as integer ) as Bool
+    if inRoutes = totalRoutes then 
+        return Bool.True
+    end if    
+    return Bool.False
+End Function
+
 Type RouteStep
     _tile as TileMap_.Tile Ptr
     _mirror as Mirror
 End Type
 
 Type FailedRoute
+    private:        
     public:
         failureMsg as String
         routeList as MyList.List ptr
@@ -125,7 +210,7 @@ End Type
 
 Constructor FailedRoute ( _failureMsg as String, _routeList as MyList.List Ptr )
     failureMsg = _failureMsg
-    routeList = _routeList
+    routeList = _routeList    
 End Constructor
 
 Type PathLeaf
@@ -199,11 +284,14 @@ Type PathTree
         ' first Leaf in the tree
         root as PathLeaf ptr = 0
         routeList as MyList.List ptr = 0
+        tileList as MyList.List ptr = 0
         failList as MyList.List ptr = 0
         debugFailedRoutes as Bool = Bool.True
         Declare Function getRouteList ( leaf as PathLeaf Ptr ) as MyList.List Ptr
         Declare Function printRoute ( listNode as MyList.ListNode Ptr ) as String
         Declare Function printRoute ( _list as MyList.List Ptr ) as String
+        Declare Function findRouteTile( tileToFind as TileMap_.Tile Ptr ) as RouteTile Ptr
+        Declare Sub addToTileList( _route as MyList.List Ptr )
     public:
         Declare Constructor( _tile as TileMap_.Tile Ptr, _direction as Direction )
         Declare Function getRoot( ) as PathLeaf ptr
@@ -211,6 +299,7 @@ Type PathTree
         Declare Function getRouteString () as String
         Declare Sub addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.Undefined, failMsg as String )
         Declare Sub printRoutesToFile ( fileName as String )
+        Declare Sub writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr )
 End Type    
 
 Constructor PathTree( _tile as TileMap_.Tile Ptr, _direction as Direction )
@@ -223,11 +312,51 @@ Function PathTree.getRoot() as PathLeaf Ptr
     return root
 End Function    
 
+Function PathTree.findRouteTile( tileToFind as TileMap_.Tile Ptr ) as RouteTile Ptr
+    if tileList <> 0 then
+        Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(tileList)
+        while thisIterator->hasNextObject() = Bool.True
+            Dim thisRouteTile as RouteTile Ptr = thisIterator->getNextObject()
+            if thisRouteTile <> 0 then
+                'print "found RouteTile @";
+                'print thisRouteTile->_tile
+                if thisRouteTile->_tile = tileToFind then                    
+                    return thisRouteTile                    
+                end if    
+            end if 
+        wend
+        delete thisIterator
+    end if
+    return 0
+End Function    
+    
+Sub PathTree.addToTileList( _route as MyList.List Ptr )
+    if _route <> 0 then
+        Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(_route)
+        while thisIterator->hasNextObject = Bool.True
+            Dim thisStep as RouteStep Ptr = thisIterator->getNextObject()
+            if thisStep <> 0 then
+                Dim thisRouteTile as RouteTile Ptr = findRouteTile(thisStep->_tile)
+                if thisRouteTile <> 0 then                    
+                    thisRouteTile->addMirror(thisStep->_mirror)
+                else
+                    Dim newRouteTile as RouteTile Ptr = new RouteTile(thisStep->_tile,thisStep->_mirror)
+                    'print "adding RouteTile"
+                    tileList->addObject(newRouteTile)
+                end if    
+            end if
+        wend 
+        delete thisIterator
+    end if         
+End Sub
+
 Function PathTree.getRouteList(leaf as PathLeaf Ptr) as MyList.List Ptr
     Dim thisRoute as MyList.List Ptr = new MyList.List()
     Dim thisLeaf as PathLeaf Ptr = leaf
     While thisLeaf->getParent() <> 0      
-        thisRoute->addObject(new RouteStep(thisLeaf->getParent()->getTile(),thisLeaf->getParentOrientation()))
+        Dim tileToAdd as TileMap_.Tile Ptr = thisLeaf->getParent()->getTile()
+        Dim mirrorToAdd as Mirror = thisLeaf->getParentOrientation()
+        thisRoute->addObject(new RouteStep(tileToAdd,mirrorToAdd))
         thisLeaf = thisLeaf->getParent()
     Wend
     return thisRoute
@@ -236,8 +365,10 @@ End Function
 Sub PathTree.addSuccessRoute (leaf as PathLeaf Ptr)    
     if routeList = 0 then
         routeList = new MyList.List()
+        tileList = new MyList.List()
     end if
     Dim thisRoute as MyList.List Ptr = getRouteList(leaf)
+    addToTileList(thisRoute)
     routeList->addObject(thisRoute)
 End Sub    
 
@@ -273,7 +404,7 @@ Function PathTree.getRouteString () as String
     Dim routes as integer = 0
     Dim returnString as String = ""    
     if routeList <> 0 then
-        returnString &= "Found " & str(routeList->getSize()) & " succesful route(s)." & NEWLINE
+        returnString &= "Found " & str(routeList->getSize()) & " successful route(s)." & NEWLINE
         Dim thisRoute as MyList.ListNode ptr = routeList->getFirst()
         while thisRoute <> 0
             Dim _route as MyList.List ptr = thisRoute->getObject()
@@ -286,7 +417,7 @@ Function PathTree.getRouteString () as String
             end if
             thisRoute = thisRoute->getNext()
         wend
-        returnString &= !"\r\n"
+        returnString &= NEWLINE
     else
         returnString &= "No Routes!" 
     end if
@@ -337,6 +468,34 @@ Sub PathTree.printRoutesToFile ( fileName as String )
         end
     end if    
 End Sub    
+
+Sub PathTree.writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr )
+    if tileList <> 0 then
+        Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(tileList)
+        while thisIterator->hasNextObject() = Bool.True
+            Dim thisRouteTile as RouteTile ptr = thisIterator->getNextObject()
+            if thisRouteTile->inAllRoutes(routeList->getSize()) = Bool.True then
+                Dim eliminatedMirrors as integer = 0                
+                for i as integer = 0 to 2
+                    if thisRouteTile->_mirror(i) = Bool.False then
+                        eliminatedMirrors += 1
+                        _mirrorMap->removePossibleMirror(thisRouteTile->_tile,i) 
+                    end if    
+                next i
+                if eliminatedMirrors = 2 then
+                    print thisRouteTile->_tile->getCoordString()
+                elseif eliminatedMirrors = 3 then
+                    print "Error: Tiles must have at least one possible mirror!"
+                    sleep
+                    end
+                else
+                    
+                end if    
+            end if    
+        wend    
+        delete thisIterator
+    end if    
+End Sub    
 '---------------------------------
 ' Move object used by Robot/Tank
 '---------------------------------
@@ -358,6 +517,7 @@ Type Robot
     private:
         _board as BoardPtr
         _pathTree as PathTree Ptr
+        _mirrorMap as MirrorPlacementMap Ptr
         id as integer
         startX as integer
         startY as integer
@@ -390,7 +550,7 @@ Type Robot
         Declare Function getStartY() as Integer
         
         ' Methods for pathfinding        
-        Declare Sub findAlternativePaths ()        
+        Declare Sub findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr )        
         Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
         Declare Sub findNextMirror( node as PathLeaf ptr, bounces as integer )
         Declare Function areaHasMirror ( node as PathLeaf ptr ) as Bool
@@ -514,9 +674,21 @@ Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )
     if node <> 0 then
         Dim thisTile as TileMap_.Tile Ptr = node->getTile()
         if thisTile <> 0 then            
-            checkChild_Mirror(Mirror.NE_SW,node,bounces)
-            checkChild_Mirror(Mirror.NW_SE,node,bounces)
-            checkChild_NoMirror(node,bounces)
+            if _mirrorMap->canPlaceMirror(thisTile,Mirror.NE_SW) = Bool.True then
+                checkChild_Mirror(Mirror.NE_SW,node,bounces)
+            else
+                _pathTree->addFailedRoute(node,Mirror.NE_SW,"Mirror placement invalidated by MirrorPlacementMap. " & _mirrorMap->getPossibilityString(thisTile))
+            end if
+            if _mirrorMap->canPlaceMirror(thisTile,Mirror.NW_SE) = Bool.True then
+                checkChild_Mirror(Mirror.NW_SE,node,bounces)
+            else
+                _pathTree->addFailedRoute(node,Mirror.NW_SE,"Mirror placement invalidated by MirrorPlacementMap. " & _mirrorMap->getPossibilityString(thisTile))                
+            end if
+            if _mirrorMap->canPlaceMirror(thisTile,Mirror.None) = Bool.True then
+                checkChild_NoMirror(node,bounces)
+            else
+                _pathTree->addFailedRoute(node,Mirror.None,"Mirror placement invalidated by MirrorPlacementMap. " & _mirrorMap->getPossibilityString(thisTile))
+            end if    
         else
             ' at edge, find out if endtile is reached.
             if bounces = reflections then
@@ -593,7 +765,7 @@ Function Robot.getRouteDescription() as String
     returnString &= "########" & NEWLINE
     returnString &= "Tank  : " & str(id) & NEWLINE
     returnString &= "From start @ " & startTile->getCoordString() & NEWLINE
-    returnString &= directionNames(beamStartDirection) & "wards in " & str(reflections) & " bounces." & NEWLINE
+    returnString &= directionNames(beamStartDirection) & "wards in " & str(reflections) & " bounce(s)." & NEWLINE
     returnString &= "To finish  @ " & endTile->getCoordString() & NEWLINE
     returnString &= "Facing " & directionNames(beamEndDirection) & "." & NEWLINE
     returnString &= "########" & NEWLINE
@@ -654,8 +826,6 @@ Type Board
         Declare Destructor()
         Declare Sub _draw()                
         Declare Sub setOffset( _xOffset as integer, yOffset as integer )
-        Declare Function getWidth () as integer
-        Declare Function getHeight () as integer
         Declare Function getBoardFileName() as String
         
         Declare Function getArea ( _tile as TileMap_.Tile Ptr ) as Area Ptr
@@ -673,7 +843,7 @@ Constructor Board( _boardWidth as integer, _boardHeight as integer )
         createTileMap()
         createAreas()        
         placeRandomMirrors()
-        boardFileName = "boards/board " & date & "_" & str(int(timer)) & ".txt"
+        boardFileName = "boards/board_" & date & "_" & str(int(timer)) & ".txt"
         printBoardToFile()
         
         ' Prepare the sprites
@@ -1030,6 +1200,7 @@ Sub Board.drawBeam( __robot as Robot ptr )
 End Sub
 
 Sub Board._draw()
+    Dim possibilityMap as MirrorPlacementMap Ptr = new MirrorPlacementMap(boardWidth,boardHeight)
     for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)        
         if robots(i) <> 0 then
             cls
@@ -1038,7 +1209,7 @@ Sub Board._draw()
             drawTank(robots(i))        
             drawBeam(robots(i))
             sleep
-            robots(i)->findAlternativePaths()
+            robots(i)->findAlternativePaths(possibilityMap)
             'drawBeam(robots(i))
             sleep
         end if    
@@ -1304,18 +1475,26 @@ Sub Robot.shootBeam()
     'sleep
 End Sub
 
-Sub Robot.findAlternativePaths ()
+Sub Robot.findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr )
     'print getRouteDescription()
     'followLine (startTile, beamStartDirection, 0, 0, "")
     '@TODO: fix and add findNextMirror here!
-    _pathTree = new PathTree(startTile,beamStartDirection)
-    findNextMirror( _pathTree->getRoot(), 0 )
-    'print _pathTree->getRouteString()
-    'Dim fileName as String = "routes_for_tank_" & str(id) & ".txt"    
-    open _board->getBoardFileName() for append as #1
-        print #1, getRouteDescription()
-    close #1
-    _pathTree->printRoutesToFile(_board->getBoardFileName())
+    if possibilityMap <> 0 then
+        _mirrorMap = possibilityMap
+        _pathTree = new PathTree(startTile,beamStartDirection)
+        findNextMirror( _pathTree->getRoot(), 0 )
+        'print _pathTree->getRouteString()
+        'Dim fileName as String = "routes_for_tank_" & str(id) & ".txt"    
+        open _board->getBoardFileName() for append as #1
+            print #1, getRouteDescription()
+        close #1
+        _pathTree->printRoutesToFile(_board->getBoardFileName())
+        _pathTree->writeSuccessRoutesToMap(possibilityMap)
+    else
+        print "Error: can't start pathfinding with null mirrormap!"
+        sleep
+        end
+    end if
 End Sub
 
 '------------------------
