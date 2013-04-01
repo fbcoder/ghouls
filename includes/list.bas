@@ -25,7 +25,7 @@ Constructor ListNode(optr as any ptr)
     if optr <> 0 then
         objectPtr = optr
     else
-        print "Error: Constructing ListNode with nullpointer! "
+        print "Error: Constructing ListNode with null object not allowed!"
         sleep
         end
     end if    

@@ -32,17 +32,21 @@ End Enum
 
 Type MirrorPlacementMap
     private:
+        _areaMap as Area_.Map Ptr
         map(6,6,3) as Bool
         _width as integer
         _height as integer
+        fixedMirrors as integer = 0
     public:
-        Declare Constructor ( w as integer, h as integer )
+        Declare Constructor ( w as integer, h as integer, __areaMap as Area_.Map Ptr )
         Declare Sub removePossibleMirror( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
         Declare Function canPlaceMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
         Declare Function getPossibilityString ( _tile as TileMap_.Tile Ptr ) as String
+        Declare Function getFixedMirrors() as Integer 
 End Type    
 
-Constructor MirrorPlacementMap ( w as integer, h as integer )
+Constructor MirrorPlacementMap ( w as integer, h as integer, __areaMap as Area_.Map Ptr )
+    _areaMap = __areaMap
     for i as integer = 0 to _height - 1
         for j as integer = 0 to _width - 1
             for h as integer = 0 to 2
@@ -53,8 +57,34 @@ Constructor MirrorPlacementMap ( w as integer, h as integer )
 End Constructor
 
 Sub MirrorPlacementMap.removePossibleMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
-    map(_tile->getCoord()->x,_tile->getCoord()->y,_mirror) = Bool.False
-End Sub    
+    if map(_tile->getCoord()->x,_tile->getCoord()->y,_mirror) = Bool.True then        
+        map(_tile->getCoord()->x,_tile->getCoord()->y,_mirror) = Bool.False    
+        Dim remaining as integer = 0
+        Dim onlyMirrorLeft as integer = -1
+        for i as integer = 0 to 2
+            if map(_tile->getCoord()->x,_tile->getCoord()->y,i) = Bool.True then
+                onlyMirrorLeft = i
+                remaining += 1
+            end if            
+        next i    
+        if remaining = 1 then           
+           if onlyMirrorLeft <> Mirror.None then
+               print "fixed "; mirrorText(onlyMirrorLeft); " on tile "; _tile->getCoordString()
+               fixedMirrors += 1
+               Dim returnValue as Bool
+               returnValue = _areaMap->getArea(_tile)->markFixed(_tile,onlyMirrorLeft)
+           else
+               Dim returnValue as Bool
+               returnValue = _areaMap->getArea(_tile)->markFixed(_tile,Mirror.None)
+           end if
+        end if    
+    else        
+    end if
+End Sub
+
+Function MirrorPlacementMap.getFixedMirrors() as Integer
+    return fixedMirrors
+End Function    
     
 Function MirrorPlacementMap.canPlaceMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
     return map(_tile->getCoord()->x,_tile->getCoord()->y,_mirror)
@@ -225,6 +255,7 @@ Type PathTree
         Declare Sub addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.Undefined, failMsg as String )
         Declare Sub printRoutesToFile ( fileName as String )
         Declare Sub writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr )
+        Declare Function hasUniqueSuccessRoute() as Bool
 End Type    
 
 Constructor PathTree( _tile as TileMap_.Tile Ptr, _direction as Direction )
@@ -455,15 +486,22 @@ Sub PathTree.writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr )
         while thisIterator->hasNextObject() = Bool.True
             Dim thisRouteTile as RouteTile ptr = thisIterator->getNextObject()
             if thisRouteTile->inAllRoutes(routeList->getSize()) = Bool.True then
-                Dim eliminatedMirrors as integer = 0                
+                Dim eliminatedMirrors as integer = 0
+                Dim newEliminatedMirrors as integer = 0
                 for i as integer = 0 to 2
                     if thisRouteTile->_mirror(i) = Bool.False then
+                        if _mirrorMap->canPlaceMirror(thisRouteTile->_tile,i) = Bool.True then
+                            'new information!
+                            print "elminated ["; mirrorText(i); "] on tile "; thisRouteTile->_tile->getCoordString()
+                            newEliminatedMirrors += 1
+                        end if    
                         eliminatedMirrors += 1
                         _mirrorMap->removePossibleMirror(thisRouteTile->_tile,i) 
                     end if    
                 next i
                 if eliminatedMirrors = 2 then
-                    print thisRouteTile->_tile->getCoordString()
+                    'if newEliminatedMirrors 
+                    'print thisRouteTile->_tile->getCoordString()
                 elseif eliminatedMirrors = 3 then
                     print "Error: Tiles must have at least one possible mirror!"
                     sleep
@@ -475,7 +513,49 @@ Sub PathTree.writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr )
         wend    
         delete thisIterator
     end if    
-End Sub    
+End Sub
+
+Function PathTree.hasUniqueSuccessRoute() as Bool
+    if routeList <> 0 then
+        if routeList->getSize() = 1 then
+            return Bool.True
+        end if
+    end if    
+    return bool.False
+End Function
+
+Type PathTreeIterator
+    private:
+        currentNode as PathLeaf Ptr
+    public:
+        Declare Constructor ( startNode as PathLeaf Ptr )
+        Declare Function hasParent() as Bool
+        Declare Function getNextLeaf() as RouteStep Ptr  
+End Type
+
+Constructor PathTreeIterator ( startNode as PathLeaf Ptr )
+    if startNode <> 0 then
+        currentNode = startNode
+    end if
+End Constructor
+
+Function PathTreeIterator.hasParent() as Bool
+    if currentNode->getParent() <> 0 then
+        return Bool.True
+    end if    
+    return Bool.False
+End Function
+
+Function PathTreeIterator.getNextLeaf() as RouteStep Ptr
+    Dim returnMirror as Mirror = currentNode->getParentOrientation()
+    currentNode = currentNode->getParent()
+    if currentNode <> 0 then
+        Dim returnTile as TileMap_.Tile Ptr = currentNode->getTile()    
+        return new RouteStep(returnTile,returnMirror)
+    end if
+    return 0
+End Function
+
 '---------------------------------
 ' Move object used by Robot/Tank
 '---------------------------------
@@ -499,6 +579,7 @@ Type Robot
         '_board as BoardPtr
         _mirrorMap as MirrorMap.Map Ptr
         _pathTree as PathTree Ptr
+        pathFixed as Bool = Bool.False
         _mirrorPlacementMap as MirrorPlacementMap Ptr
         id as integer
         startX as integer
@@ -531,13 +612,16 @@ Type Robot
         Declare Function getStartX() as Integer
         Declare Function getStartY() as Integer
         
-        ' Methods for pathfinding        
+        ' Methods for pathfinding                
         Declare Sub findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr, fileName as String )        
         Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
         Declare Sub findNextMirror( node as PathLeaf ptr, bounces as integer )
+        Declare Function areaCanHaveEmptyTile( node as PathLeaf Ptr ) as Bool
         Declare Function areaHasMirror ( node as PathLeaf ptr ) as Bool
+        Declare Function canUseTileInRoute ( node as PathLeaf Ptr, mirrorToPlace as Mirror ) as Bool
         Declare Sub checkChild_Mirror ( _mirror as Mirror, node as PathLeaf ptr, bounces as integer )
         Declare Sub checkChild_NoMirror( node as PathLeaf ptr, bounces as integer )
+        Declare Function hasPathFixed() as Bool
 End Type
 
 Constructor Robot( _id as integer, _startTile as TileMap_.Tile Ptr, startDir as Direction, __areaMap as Area_.Map Ptr, __mirrorMap as MirrorMap.Map Ptr )
@@ -639,18 +723,22 @@ End Function
 
 Sub Robot.checkChild_Mirror( _mirror as Mirror, node as PathLeaf ptr, bounces as integer )
     if bounces < reflections then
-        if areaHasMirror(node) = Bool.False then            
-            Dim newDirection as Direction = directionMutations(_mirror,node->getIncoming())
-            Dim nextTile as TileMap_.Tile Ptr = node->getTile()->getNeighbor(newDirection)            
-            node->addChildLeaf(nextTile,_mirror,newDirection)
-            Dim createdChild as PathLeaf ptr = node->getChild(_mirror)
-            if createdChild <> 0 then
-                findNextMirror(createdChild,bounces + 1)
+        if canUseTileInRoute(node,_mirror) = Bool.True then
+            if areaHasMirror(node) = Bool.False then            
+                Dim newDirection as Direction = directionMutations(_mirror,node->getIncoming())
+                Dim nextTile as TileMap_.Tile Ptr = node->getTile()->getNeighbor(newDirection)            
+                node->addChildLeaf(nextTile,_mirror,newDirection)
+                Dim createdChild as PathLeaf ptr = node->getChild(_mirror)
+                if createdChild <> 0 then
+                    findNextMirror(createdChild,bounces + 1)
+                else
+                    ' Something Wrong!
+                end if
             else
-                ' Something Wrong!
+                _pathTree->addFailedRoute(node,_mirror,"Can't have two mirrors in one area.")            
             end if
         else
-            _pathTree->addFailedRoute(node,_mirror,"Can't have two mirrors in one area.")            
+            _pathTree->addFailedRoute(node,_mirror,"Tile already used in route with different Mirror.")
         end if
     else
         _pathTree->addFailedRoute(node,_mirror,"Too much reflections already to reach endtile.")
@@ -662,13 +750,21 @@ Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )
         Dim thisTile as TileMap_.Tile Ptr = node->getTile()
         if thisTile <> 0 then            
             if _mirrorPlacementMap->canPlaceMirror(thisTile,Mirror.NE_SW) = Bool.True then
+                'if _areaMap->canPlace(thisTile,Mirror.NE_SW) = Bool.False then
                 checkChild_Mirror(Mirror.NE_SW,node,bounces)
+                'else
+                '    _pathTree->addFailedRoute(node,Mirror.NE_SW,"Area blocked by previously fixed mirror.")
+                'end if
             else
                 Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(thisTile)
                 _pathTree->addFailedRoute(node,Mirror.NE_SW,failMsg)
             end if
             if _mirrorPlacementMap->canPlaceMirror(thisTile,Mirror.NW_SE) = Bool.True then                
+                'if _areaMap->areaFixed(thisTile) = Bool.False then
                 checkChild_Mirror(Mirror.NW_SE,node,bounces)
+'                else
+'                    _pathTree->addFailedRoute(node,Mirror.NW_SE,"Area blocked by previously fixed mirror.")
+'                end if
             else
                 Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(thisTile)
                 _pathTree->addFailedRoute(node,Mirror.NW_SE,failMsg)                
@@ -767,14 +863,22 @@ Sub Robot.checkChild_NoMirror( node as PathLeaf ptr, bounces as integer )
     Dim thisArea as Area_.Area Ptr = _areaMap->getArea(thisTile)
     if thisArea <> 0 then
         if thisArea->getSize() > 1 then
-            Dim newDirection as Direction = directionMutations(Mirror.None,node->getIncoming())
-            Dim nextTile as TileMap_.Tile Ptr = node->getTile()->getNeighbor(newDirection)
-            node->addChildLeaf(nextTile,Mirror.None,newDirection)
-            Dim createdChild as PathLeaf ptr = node->getChild(Mirror.None)
-            if createdChild <> 0 then
-                findNextMirror(createdChild,bounces)
+            if canUseTileInRoute(node,Mirror.None) = Bool.True then
+                if areaCanHaveEmptyTile(node) = Bool.True then
+                    Dim newDirection as Direction = directionMutations(Mirror.None,node->getIncoming())
+                    Dim nextTile as TileMap_.Tile Ptr = node->getTile()->getNeighbor(newDirection)
+                    node->addChildLeaf(nextTile,Mirror.None,newDirection)
+                    Dim createdChild as PathLeaf ptr = node->getChild(Mirror.None)
+                    if createdChild <> 0 then
+                        findNextMirror(createdChild,bounces)
+                    else
+                        ' Something Wrong!
+                    end if
+                else
+                    _pathTree->addFailedRoute(node,Mirror.None,"Placing an empty tile here would make it impossible to fit a mirror in this Area.")
+                end if 
             else
-                ' Something Wrong!
+                _pathTree->addFailedRoute(node,Mirror.None,"Can't place empty tile, route already contains a mirror here.")
             end if
         else
             _pathTree->addFailedRoute(node,Mirror.None,"Areas of one tile can't be skipped without placing a mirror.")
@@ -785,6 +889,70 @@ Sub Robot.checkChild_NoMirror( node as PathLeaf ptr, bounces as integer )
         end
     end if
 End Sub
+
+Function Robot.canUseTileInRoute ( node as PathLeaf Ptr, mirrorToPlace as Mirror ) as Bool
+    Dim thisIterator as PathTreeIterator Ptr = new PathTreeIterator(node)
+    while thisIterator->hasParent() = Bool.True
+        Dim thisStep as RouteStep Ptr = thisIterator->getNextLeaf()                
+        if thisStep <> 0 then
+            if thisStep->_tile = node->getTile() then
+                if thisStep->_mirror = mirrorToPlace then
+                    delete thisIterator
+                    return Bool.True
+                else
+                    delete thisIterator
+                    return Bool.False
+                end if    
+            end if
+        end if
+    wend
+    delete thisIterator
+    return Bool.True
+End Function
+
+Function Robot.areaCanHaveEmptyTile( node as PathLeaf Ptr ) as Bool
+    Dim thisTile as TileMap_.Tile Ptr = node->getTile()
+    Dim thisArea as Area_.Area Ptr = _areaMap->getArea(thisTile)
+    if thisArea = 0 then
+        print "Error: thisTile is not part of an area!"
+        sleep
+    end
+    end if
+    Dim areaSize as integer = thisArea->getSize()
+    if areaSize = 1 then
+        return Bool.False
+    else
+    Dim emptyTiles as integer = 0
+    Dim thisNode as PathLeaf ptr = node 
+    while thisNode <> 0
+        Dim parentNode as PathLeaf ptr = thisNode->getParent()
+        if parentNode <> 0 then
+            Dim parentMirror as Mirror = thisNode->getParentOrientation()
+            if parentMirror = Mirror.None then
+                Dim parentTile as TileMap_.Tile Ptr = parentNode->getTile()
+                if parentTile <> 0 then
+                    Dim parentArea as Area_.Area Ptr = _areaMap->getArea(parentTile)
+                    if parentArea = 0 then
+                        print "Error: parentTile is not part of an area!"
+                        sleep
+                        end
+                    end if    
+                    if parentArea = thisArea then
+                        if parentTile <> thisTile then
+                            emptyTiles += 1
+                            if emptyTiles >= (areaSize - 1) then
+                                return Bool.False
+                            end if
+                        end if
+                    end if
+                end if
+            end if    
+        end if 
+        thisNode = parentNode
+    wend
+    end if
+    return Bool.True
+End Function    
 
 Function Robot.areaHasMirror( node as PathLeaf ptr ) as Bool    
     Dim thisTile as TileMap_.Tile Ptr = node->getTile()
@@ -897,6 +1065,9 @@ Sub Robot.findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr, fileN
         close #1
         _pathTree->printRoutesToFile(fileName)
         _pathTree->writeSuccessRoutesToMap(_mirrorPlacementMap)
+        if _pathTree->hasUniqueSuccessRoute() = Bool.True then
+            pathFixed = Bool.True
+        end if    
         
         delete _pathTree
         _pathTree = 0
@@ -906,6 +1077,10 @@ Sub Robot.findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr, fileN
         end
     end if
 End Sub
+
+Function Robot.hasPathFixed() as Bool
+    return pathFixed
+End Function    
 
 '-------------
 ' ** BOARD! **
@@ -923,9 +1098,7 @@ Type Board
         tileSprites(30) as any Ptr
         spriteMap(TileMap_.DEFAULT_MAPWIDTH,TileMap_.DEFAULT_MAPHEIGHT) as integer
         backGroundSprite as any Ptr
-        
-        tankPositionTaken(4,6) as Bool
-
+                        
         ' Related to graphics
         spriteSize as integer = 32
         xOffset as integer = 0
@@ -945,7 +1118,9 @@ Type Board
         Declare Sub createBackGroundSprite()
         
         ' Robots
+        tankPositionTaken(4,6) as Bool
         robots(24) as Robot ptr
+        tankList as MyList.List
         Declare Sub placeTanks()
         Declare Function addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr
         Declare Sub removeTank( _tile as TileMap_.Tile Ptr, _direction as Direction )
@@ -987,6 +1162,8 @@ Constructor Board( _boardWidth as integer, _boardHeight as integer )
         
         ' Place tanks on the board
         placeTanks()
+        
+        ' Try to solve the Board        
 	else
 		print "Error: board can be 6 x 6 at most."
         sleep
@@ -1144,7 +1321,8 @@ Function Board.addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _ta
 		newRobot->shootBeam()
 		if newRobot->getReflections() > 0 and isEndPointOfOtherRoute = Bool.False then
 			tankPositionTaken(edge,index) = Bool.True
-			return newRobot
+			tankList.addObject(newRobot)
+            return newRobot
 		else
 			delete newRobot
 			tankPositionTaken(edge,index) = Bool.False
@@ -1155,7 +1333,7 @@ Function Board.addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _ta
 End Function
 
 Sub Board.removeTank( _tile as TileMap_.Tile Ptr, _direction as Direction )
-End Sub    
+End Sub
 
 ' ----
 ' Methods and helper methods related to drawing the board etc.
@@ -1251,7 +1429,7 @@ Sub Board.drawBeam( __robot as Robot ptr )
                     'print spriteX; ", "; spriteY
                     'sleep
                 else
-                    print "No tile in Move object."
+                    print "Error: No tile in Move object."
                     sleep
                     end
                 end if
@@ -1263,17 +1441,31 @@ Sub Board.drawBeam( __robot as Robot ptr )
 End Sub
 
 Sub Board._draw()
-    Dim possibilityMap as MirrorPlacementMap Ptr = new MirrorPlacementMap(boardWidth,boardHeight)
+    Dim possibilityMap as MirrorPlacementMap Ptr = new MirrorPlacementMap(boardWidth,boardHeight,_areaMap)
     for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)        
         if robots(i) <> 0 then
             cls
             drawBoardBase()
             drawAllMirrors()
-            drawTank(robots(i))        
-            drawBeam(robots(i))
-            sleep
-            robots(i)->findAlternativePaths(possibilityMap,boardFileName)
-            'drawBeam(robots(i))
+            'sleep
+            if possibilityMap->getFixedMirrors() < _areaMap->getAreaCount() then
+                drawTank(robots(i))        
+                drawBeam(robots(i))
+                if robots(i)->hasPathFixed() = Bool.False then
+                    robots(i)->findAlternativePaths(possibilityMap,boardFileName)
+                    print "fixed ";possibilityMap->getFixedMirrors();" mirrors."
+                    if i > 0 then
+                        for j as integer = 0 to (i - 1)
+                            if robots(j) <> 0 then
+                                if robots(j)->hasPathFixed() = Bool.False then
+                                    robots(j)->findAlternativePaths(possibilityMap,boardFileName)
+                                    print "fixed ";possibilityMap->getFixedMirrors();" mirrors."
+                                end if
+                            end if
+                        next j    
+                    end if    
+                end if                
+            end if
             sleep
         end if    
     next i
@@ -1297,7 +1489,7 @@ End Function
 '------------------------
 ScreenRes 640,480,32
 
-Dim w as integer = 4
+Dim w as integer = 3
 Dim h as integer = 3
 Dim b as Board Ptr = new Board(w,h)
 Cls

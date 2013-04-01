@@ -9,6 +9,48 @@ NameSpace Area_
 ' Forward for Map
 Type MapPtr as Map Ptr
 
+Type AreaTile
+    private:
+        _tile as TileMap_.Tile Ptr
+        _mirror as Mirror
+        fixed as Bool = Bool.False
+    public:    
+        Declare Constructor ( __tile as TileMap_.Tile Ptr )
+        Declare Sub _fix( __mirror as Mirror )
+        Declare Function isFixed() as Bool
+        Declare Function getTile() as TileMap_.Tile Ptr
+        Declare Function getMirror() as Mirror        
+End Type    
+
+Constructor AreaTile ( __tile as TileMap_.Tile Ptr )
+    if __tile <> 0 then
+        _tile = __tile
+        _mirror = Mirror.Undefined
+    else
+    end if
+End Constructor
+
+Sub AreaTile._fix( __mirror as Mirror )
+    if fixed <> Bool.True then
+        _mirror = __mirror
+        fixed = Bool.True
+    else
+        'should not happen!
+    end if    
+End Sub
+
+Function AreaTile.isFixed() as Bool
+    return fixed
+End Function
+
+Function AreaTile.getTile() as TileMap_.Tile Ptr
+    return _tile
+End Function
+
+Function AreaTile.getMirror() as Mirror
+    return _mirror
+End Function    
+
 '------
 ' Area
 '------
@@ -16,26 +58,34 @@ Type Area
     private:        
         _map as MapPtr
         id as integer = 0
-        tileList as MyList.list
+        tileList as MyList.List Ptr
         size as integer = 0
+        emptyTiles as integer = 0
         maxSize as integer = 0
         hasMirror as Bool = Bool.False
         originalMirrorType as Mirror
         originalMirrorTile as TileMap_.Tile Ptr
+        mirrorFixed as Bool = Bool.False
         Declare Function getRandomDirection() as Direction
         Declare Sub addTiles( _tile as TileMap_.Tile Ptr, fromTile as TileMap_.Tile Ptr, s as Integer )
+        Declare Function getTileAreaData( _tile as TileMap_.Tile Ptr ) as AreaTile Ptr
+        Declare Sub markOtherTileAsEmpty( _areaTile as AreaTile Ptr)
     public:
         Declare Constructor ( _id as integer, startTile as TileMap_.Tile Ptr, maxSize as integer, __map as MapPtr  )
         Declare Sub placeRandomMirror()
         Declare Sub debug()
         Declare Sub debugList()
         Declare Function getSize() as integer
+        Declare Function isFixed() as Bool        
+        Declare Function markFixed( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
+        Declare Function canPlace( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
 End Type
 
 Constructor Area ( _id as integer, startTile as TileMap_.Tile Ptr, _maxSize as integer, __map as MapPtr )
     id = _id
     _map = __map
     maxSize = _maxSize
+    tileList = new MyList.List()
     addTiles(startTile,0,1)
 End Constructor
 
@@ -55,27 +105,112 @@ Function Area.getRandomDirection() as Direction
 End Function
 
 Function area.getSize() as integer
-    return size
+    return tileList->getSize()
 End Function
 
 Sub Area.debug()
     print "-- Area --"
     print "id "; id
-    print "# of tiles "; tileList.getSize()
-    Dim thisNode as MyList.ListNode Ptr = tileList.getFirst()
-    while thisNode <> 0
-        Dim tp as TileMap_.Tile ptr = thisNode->getObject()
-        if tp <> 0 then
-            tp->debug()
-        end if
-        thisNode = thisNode->getNext()
-    wend
+    print "# of tiles "; tileList->getSize()
+'    Dim thisNode as MyList.ListNode Ptr = tileList->getFirst()
+'    while thisNode <> 0
+'        Dim atp as TileMap_.Tile ptr = thisNode->getObject()
+'        if tp <> 0 then
+'            tp->debug()
+'        end if
+'        thisNode = thisNode->getNext()
+'    wend
 End Sub
 
 Sub Area.debugList()
     print "** TILE LIST **"
-    tileList.debug()
+    tileList->debug()
 End Sub
+
+Sub Area.markOtherTileAsEmpty( _areaTile as AreaTile Ptr)
+    Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(tileList)
+    while thisIterator->hasNextObject() = Bool.True
+        Dim thisAreaTile as AreaTile Ptr = thisIterator->getNextObject()
+        if thisAreaTile <> _areaTile then
+            thisAreaTile->_fix(Mirror.None)
+        end if    
+    wend
+    delete thisIterator
+End Sub
+
+Function Area.getTileAreaData( _tile as TileMap_.Tile Ptr ) as AreaTile Ptr
+    Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(tileList)
+    while thisIterator->hasNextObject() = Bool.True
+        Dim thisAreaTile as AreaTile Ptr = thisIterator->getNextObject()
+        if thisAreaTile->getTile() = _tile then
+            delete thisIterator
+            return thisAreaTile
+        end if    
+    wend
+    delete thisIterator
+    return 0
+End Function
+
+Function Area.markFixed( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
+    Dim thisTile as AreaTile Ptr = getTileAreaData(_tile)
+    if thisTile <> 0 then
+        if thisTile->isFixed() = Bool.False then
+            if _mirror = Mirror.None then
+                emptyTiles += 1
+                thisTile->_fix(Mirror.None)
+                return Bool.True
+            else
+                if thisTile->getTile() = originalMirrorTile then
+                    if _mirror = originalMirrorType then
+                        if mirrorFixed = Bool.False then
+                            mirrorFixed = Bool.True
+                            markOtherTileAsEmpty(thisTile)
+                            thisTile->_fix(_mirror)
+                            return Bool.True
+                        end if
+                    else
+                        print "Error: Wrong mirror to fix!"
+                        sleep
+                        end
+                    end if
+                end if    
+            end if
+        else
+            'print "Error: Tiles should not be double fixed!"
+            'sleep
+            'end
+        end if    
+    end if    
+    return Bool.False
+End Function
+
+Function Area.CanPlace( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
+    Dim thisTile as AreaTile Ptr = getTileAreaData(_tile)
+    if thisTile <> 0 then
+        if _mirror = Mirror.None then
+            if thisTile->isFixed() = Bool.True then
+                if thisTile->getMirror() = Mirror.None then
+                    return Bool.True
+                end if    
+            else
+                if emptyTiles < (tileList->getSize() - 1) then
+                    return Bool.True
+                end if    
+            end if
+        else            
+            if thisTile->isFixed() = Bool.True then
+                if thisTile->getMirror() = _mirror then
+                    return Bool.True                    
+                end if    
+            end if                
+        end if    
+    end if 
+    return Bool.False
+End Function    
+
+Function Area.isFixed() as Bool
+    return mirrorFixed
+End Function
 
 Type Map
     private:
@@ -94,6 +229,9 @@ Type Map
         Declare Function getArea ( _tile as TileMap_.Tile Ptr ) as Area Ptr
         Declare Sub setMirror( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
         Declare Function toString() as String
+        Declare Function getAreaCount() as Integer
+        'Declare Sub fixAreaOfTile( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
+        'Declare Function areaFixed( _tile as TileMap_.Tile Ptr ) as Bool
 End Type
 
 Constructor Map ( w as integer, h as integer, __tileMap as TileMap_.TileMap Ptr, __mirrorMap as MirrorMap.Map Ptr )
@@ -127,6 +265,7 @@ Constructor Map ( w as integer, h as integer, __tileMap as TileMap_.TileMap Ptr,
 End Constructor
 
 Destructor Map () 
+    ' have to write!
 End Destructor
 
 ' Build the areas
@@ -253,17 +392,21 @@ Function Map.toString() as String
     return returnString
 End Function
 
+Function Map.getAreaCount() as Integer
+    return areaList.getSize()
+End Function    
+   
 ' ---------------------------------------------------------------------------
 ' Methods from ** Area ** Defined here because it needs methods from Map
 ' ---------------------------------------------------------------------------
 Sub Area.addTiles( _tile as TileMap_.Tile Ptr, fromTile as TileMap_.Tile Ptr, s as Integer )
     'print "Area now has size: "; s
-    if _tile <> 0 and tileList.getSize() < maxSize then
+    if _tile <> 0 and tileList->getSize() < maxSize then
         'Dim _data as TileData Ptr = _tile->getData()
         if _map <> 0 then            
             if _map->getArea(_tile) = 0 then
                 size += 1
-                tileList.addObject(_tile)
+                tileList->addObject(new AreaTile(_tile))
                 _map->setArea(_tile,@this)
                 Dim nextTile as TileMap_.Tile Ptr
                 Dim randomDir as integer = int(rnd * 4)
@@ -284,41 +427,41 @@ Sub Area.addTiles( _tile as TileMap_.Tile Ptr, fromTile as TileMap_.Tile Ptr, s 
 End Sub
 
 Sub Area.placeRandomMirror( )
-    Dim randomIndex as Integer = int(rnd * tileList.getSize())
+    Dim randomIndex as Integer = int(rnd * tileList->getSize())
     Dim index as integer = 0
-    Dim tempNode as MyList.ListNode ptr = tileList.getFirst()
-    While tempNode <> 0
-        Dim tp as TileMap_.Tile ptr = tempNode->getObject()
+    Dim thisIterator as MyList.Iterator ptr = new MyList.Iterator(tileList)
+    While thisIterator->hasNextObject() = Bool.True
+        Dim thisAreaTile as AreaTile ptr = thisIterator->getNextObject()
         if index = randomIndex then
-            If tp <> 0 then
+            If thisAreaTile <> 0 then
                 'Dim td as TileData ptr = tp->getData()
                 'If td <> 0 then
                     print
                     print "** Area: placing mirror at tile "; randomIndex; " **"
-                    tp->debug()
+                    thisAreaTile->getTile()->debug()
                     'td->debug()
-                    originalMirrorTile = tp
+                    originalMirrorTile = thisAreaTile->getTile()
                     Dim r as Integer = int(rnd * 2)
                     if r = 0 then
                         originalMirrorType = Mirror.NE_SW
                     else
                         originalMirrorType = Mirror.NW_SE
                     end if
-                    _map->setMirror(tp,originalMirrorType)
+                    _map->setMirror(thisAreaTile->getTile(),originalMirrorType)
                     'td->setMirror(originalMirrorType)
                 'Else
                     'print "Error: no TileData!"
                 'End if
             Else
-                print "Error: no TileMap_.Tile object!"
+                print "Error: no AreaTile object!"
                 sleep
                 end
             End if
             exit while
         End if
         index += 1
-        tempNode = tempNode->getNext()
     Wend
+    delete thisIterator
 End Sub
 
 End NameSpace
