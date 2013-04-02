@@ -75,6 +75,8 @@ Type List
         'Declare Sub deleteObjects ()
         Declare Function getSize() as integer
         Declare Function getFirst() as ListNode ptr
+        Declare Function containsObject( objectPtr as Any Ptr ) as Bool
+        Declare Sub addObjectIfNew( objectPtr as Any Ptr )
         Declare Destructor
 End Type
 
@@ -112,6 +114,29 @@ End Function
 Function List.getFirst() as ListNode ptr
     return firstNode
 End Function
+
+Function List.containsObject( objectPtr as Any Ptr ) as Bool
+    if objectPtr <> 0 then
+        dim currentNode as ListNode Ptr = firstNode
+        while currentNode <> 0
+            if currentNode->getObject() = objectPtr then
+                return Bool.True
+            end if
+            currentNode = currentNode->getNext()
+        wend
+    else
+        print "Error: can't search for null object in List."
+        sleep
+        end
+    end if
+    return Bool.False
+End Function
+
+Sub List.addObjectIfNew( objectPtr as Any Ptr )
+    if containsObject(objectPtr) = Bool.False then
+        addObject(objectPtr)
+    end if    
+End Sub    
 
 Sub List.debug()
     Print "-- List --"

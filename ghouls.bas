@@ -597,10 +597,20 @@ Type Robot
         directionMutations(3,4) as Direction 
         Declare Sub addToPath( _tile as TileMap_.Tile Ptr, currentDir as Direction, prevDir as Direction )
         Declare Function getRouteDescription() as String
+        
+        ' Private helpers for pathFinding
+        Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
+        Declare Sub findNextMirror( node as PathLeaf ptr, bounces as integer )
+        Declare Function areaCanHaveEmptyTile( node as PathLeaf Ptr ) as Bool
+        Declare Function areaHasMirror ( node as PathLeaf ptr ) as Bool
+        Declare Function canUseTileInRoute ( node as PathLeaf Ptr, mirrorToPlace as Mirror ) as Bool
+        Declare Sub checkChild_Mirror ( _mirror as Mirror, node as PathLeaf ptr, bounces as integer )
+        Declare Sub checkChild_NoMirror( node as PathLeaf ptr, bounces as integer )        
     public:
         Declare Constructor( _id as integer, _startTile as TileMap_.Tile Ptr, startDir as Direction, __areaMap as Area_.Map Ptr, __mirrorMap as MirrorMap.Map Ptr )
         Declare Destructor()
         Declare Sub shootBeam()
+        Declare Function getId() as Integer
         Declare Function getPath() as MyList.List ptr
         Declare Function getReflections() as Integer
         Declare Function getEndTile() as TileMap_.Tile Ptr
@@ -612,15 +622,8 @@ Type Robot
         Declare Function getStartX() as Integer
         Declare Function getStartY() as Integer
         
-        ' Methods for pathfinding                
+        ' Public related to pathfinding                
         Declare Sub findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr, fileName as String )        
-        Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
-        Declare Sub findNextMirror( node as PathLeaf ptr, bounces as integer )
-        Declare Function areaCanHaveEmptyTile( node as PathLeaf Ptr ) as Bool
-        Declare Function areaHasMirror ( node as PathLeaf ptr ) as Bool
-        Declare Function canUseTileInRoute ( node as PathLeaf Ptr, mirrorToPlace as Mirror ) as Bool
-        Declare Sub checkChild_Mirror ( _mirror as Mirror, node as PathLeaf ptr, bounces as integer )
-        Declare Sub checkChild_NoMirror( node as PathLeaf ptr, bounces as integer )
         Declare Function hasPathFixed() as Bool
 End Type
 
@@ -750,27 +753,31 @@ Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )
         Dim thisTile as TileMap_.Tile Ptr = node->getTile()
         if thisTile <> 0 then            
             if _mirrorPlacementMap->canPlaceMirror(thisTile,Mirror.NE_SW) = Bool.True then
-                'if _areaMap->canPlace(thisTile,Mirror.NE_SW) = Bool.False then
-                checkChild_Mirror(Mirror.NE_SW,node,bounces)
-                'else
-                '    _pathTree->addFailedRoute(node,Mirror.NE_SW,"Area blocked by previously fixed mirror.")
-                'end if
+                if _areaMap->getArea(thisTile)->canPlace(thisTile,Mirror.NE_SW) = Bool.True then
+                    checkChild_Mirror(Mirror.NE_SW,node,bounces)
+                else
+                    _pathTree->addFailedRoute(node,Mirror.NE_SW,"Tile already fixed for this Area.")
+                end if                
             else
                 Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(thisTile)
                 _pathTree->addFailedRoute(node,Mirror.NE_SW,failMsg)
             end if
             if _mirrorPlacementMap->canPlaceMirror(thisTile,Mirror.NW_SE) = Bool.True then                
-                'if _areaMap->areaFixed(thisTile) = Bool.False then
+                if _areaMap->getArea(thisTile)->canPlace(thisTile,Mirror.NW_SE) = Bool.True then
                 checkChild_Mirror(Mirror.NW_SE,node,bounces)
-'                else
-'                    _pathTree->addFailedRoute(node,Mirror.NW_SE,"Area blocked by previously fixed mirror.")
-'                end if
+                else
+                    _pathTree->addFailedRoute(node,Mirror.NW_SE,"Tile already fixed for this Area.")
+                end if
             else
                 Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(thisTile)
                 _pathTree->addFailedRoute(node,Mirror.NW_SE,failMsg)                
             end if
             if _mirrorPlacementMap->canPlaceMirror(thisTile,Mirror.None) = Bool.True then                
-                checkChild_NoMirror(node,bounces)
+                if _areaMap->getArea(thisTile)->canPlace(thisTile,Mirror.None) = Bool.True then
+                    checkChild_NoMirror(node,bounces)
+                else
+                    _pathTree->addFailedRoute(node,Mirror.None,"Tile already fixed for this Area.")
+                end if
             else
                 Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(thisTile)
                 _pathTree->addFailedRoute(node,Mirror.None,failMsg)
@@ -805,6 +812,10 @@ Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )
         ' Something wrong should never receive null node.
     end if
 End Sub    
+
+Function Robot.getId() as Integer
+    return id
+End Function
 
 Function Robot.getPath() as MyList.List ptr
     return path
@@ -922,6 +933,7 @@ Function Robot.areaCanHaveEmptyTile( node as PathLeaf Ptr ) as Bool
     if areaSize = 1 then
         return Bool.False
     else
+    Dim emptyTilesList as MyList.List = MyList.List()    
     Dim emptyTiles as integer = 0
     Dim thisNode as PathLeaf ptr = node 
     while thisNode <> 0
@@ -939,9 +951,12 @@ Function Robot.areaCanHaveEmptyTile( node as PathLeaf Ptr ) as Bool
                     end if    
                     if parentArea = thisArea then
                         if parentTile <> thisTile then
-                            emptyTiles += 1
-                            if emptyTiles >= (areaSize - 1) then
-                                return Bool.False
+                            if emptyTilesList.containsObject(parentTile) = Bool.False then
+                                emptyTilesList.addObject(parentTile)
+                                emptyTiles += 1
+                                if emptyTiles >= (areaSize - 1) then
+                                    return Bool.False
+                                end if                                    
                             end if
                         end if
                     end if
@@ -1441,6 +1456,8 @@ Sub Board.drawBeam( __robot as Robot ptr )
 End Sub
 
 Sub Board._draw()
+    Dim requiredRobotList as MyList.List = MyList.List()
+    Dim mirrorsToPlace as integer = _areaMap->getAreaCount()
     Dim possibilityMap as MirrorPlacementMap Ptr = new MirrorPlacementMap(boardWidth,boardHeight,_areaMap)
     for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)        
         if robots(i) <> 0 then
@@ -1448,23 +1465,37 @@ Sub Board._draw()
             drawBoardBase()
             drawAllMirrors()
             'sleep
-            if possibilityMap->getFixedMirrors() < _areaMap->getAreaCount() then
+            if possibilityMap->getFixedMirrors() < mirrorsToPlace then
                 drawTank(robots(i))        
                 drawBeam(robots(i))
                 if robots(i)->hasPathFixed() = Bool.False then
                     robots(i)->findAlternativePaths(possibilityMap,boardFileName)
-                    print "fixed ";possibilityMap->getFixedMirrors();" mirrors."
+                    if robots(i)->hasPathFixed() = Bool.True then
+                        requiredRobotList.addObjectIfNew(robots(i))                        
+                    end if    
+                    print "fixed ";possibilityMap->getFixedMirrors();"/";mirrorsToPlace;" mirrors."
                     if i > 0 then
                         for j as integer = 0 to (i - 1)
                             if robots(j) <> 0 then
                                 if robots(j)->hasPathFixed() = Bool.False then
                                     robots(j)->findAlternativePaths(possibilityMap,boardFileName)
-                                    print "fixed ";possibilityMap->getFixedMirrors();" mirrors."
+                                    if robots(j)->hasPathFixed() = Bool.True then
+                                        requiredRobotList.addObjectIfNew(robots(j))                        
+                                    end if    
+                                    print "fixed ";possibilityMap->getFixedMirrors();"/";mirrorsToPlace;" mirrors."
                                 end if
                             end if
                         next j    
                     end if    
                 end if                
+            else
+                print "Puzzle has unique solution giving the following robots to the player:"
+                Dim robotIterator as MyList.Iterator = MyList.Iterator(@requiredRobotList)
+                while robotIterator.hasNextObject() = Bool.True
+                    Dim thisRobot as Robot Ptr = robotIterator.getNextObject()
+                    print thisRobot->getId();
+                wend        
+                exit for
             end if
             sleep
         end if    

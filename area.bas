@@ -187,23 +187,24 @@ End Function
 Function Area.CanPlace( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
     Dim thisTile as AreaTile Ptr = getTileAreaData(_tile)
     if thisTile <> 0 then
-        if _mirror = Mirror.None then
-            if thisTile->isFixed() = Bool.True then
-                if thisTile->getMirror() = Mirror.None then
-                    return Bool.True
-                end if    
-            else
-                if emptyTiles < (tileList->getSize() - 1) then
-                    return Bool.True
-                end if    
+        if thisTile->isFixed() = Bool.True then
+            if thisTile->getMirror() = _mirror then
+                return Bool.True
             end if
-        else            
-            if thisTile->isFixed() = Bool.True then
-                if thisTile->getMirror() = _mirror then
-                    return Bool.True                    
-                end if    
-            end if                
-        end if    
+        else
+            if _mirror = Mirror.None then
+                if emptyTiles < (tileList->getSize() - 1) then
+                    return Bool.True                
+                end if
+            else
+                ' place a mirror on previously unfixed tile:
+                return Bool.True
+            end if    
+        end if
+    else
+        print "Error: _tile not part of an Area!"
+        sleep
+        end
     end if 
     return Bool.False
 End Function    
