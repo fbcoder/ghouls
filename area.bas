@@ -3,6 +3,7 @@
 #include once "includes/newline.bas"
 #include once "tilemap.bas"
 #include once "mirrormap.bas"
+#include once "contentmap.bas"
 
 NameSpace Area_
 
@@ -229,7 +230,7 @@ Type Map
         Declare Sub setArea ( _tile as TileMap_.Tile Ptr , _area as Area Ptr )
         Declare Function getArea ( _tile as TileMap_.Tile Ptr ) as Area Ptr
         Declare Sub setMirror( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
-        Declare Function toString() as String
+        Declare Function toString( _contentMap as ContentMap Ptr = 0 ) as String
         Declare Function getAreaCount() as Integer
         'Declare Sub fixAreaOfTile( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
         'Declare Function areaFixed( _tile as TileMap_.Tile Ptr ) as Bool
@@ -328,7 +329,7 @@ Sub Map.setMirror( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
     _mirrorMap->setMirror(_tile,_mirror)
 End Sub
 
-Function Map.toString() as String
+Function Map.toString( _contentMap as ContentMap Ptr = 0 ) as String
     Dim returnString as String = ""
     for i as integer = 0 to (_height - 1)
         Dim coordLine as String = "    "
@@ -344,10 +345,22 @@ Function Map.toString() as String
         for j as integer = 0 to (_width - 1)
             Dim n as Bool = Bool.False
             Dim e as Bool = Bool.False
-            Dim celBody as String = "   "
+            Dim celBody as String
+            if _contentMap <> 0 then
+                Dim thisCoord as TileMap_.Coord Ptr = new TileMap_.Coord(j,i)
+                celBody = _contentMap->getCell(thisCoord)
+                if len(celBody) <> 3 then
+                    print "wrong string length!"
+                end if    
+                delete thisCoord
+            else
+                celBody = "   "
+            end if 
             Dim _tile as TileMap_.Tile Ptr = _tileMap->getTile(j,i)
-            if _mirrorMap->getMirror(_tile) = Mirror.NE_SW then celBody = " / "
-            if _mirrorMap->getMirror(_tile) = Mirror.NW_SE then celBody = " \ "            
+            if _contentMap = 0 then
+                if _mirrorMap->getMirror(_tile) = Mirror.NE_SW then celBody = " / "
+                if _mirrorMap->getMirror(_tile) = Mirror.NW_SE then celBody = " \ "            
+            end if
             if _tile->getNeighbor(Direction.North) = 0 then
                 n = Bool.True
             else

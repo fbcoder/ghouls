@@ -5,6 +5,7 @@
 #include once "includes/newline.bas"
 #include once "tilemap.bas"
 #include once "area.bas"
+#include once "contentmap.bas"
 
 Randomize Timer
 
@@ -37,16 +38,20 @@ Type MirrorPlacementMap
         _width as integer
         _height as integer
         fixedMirrors as integer = 0
+        Declare Function getShortString(x as integer, y as integer) as String
     public:
         Declare Constructor ( w as integer, h as integer, __areaMap as Area_.Map Ptr )
         Declare Sub removePossibleMirror( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
         Declare Function canPlaceMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
         Declare Function getPossibilityString ( _tile as TileMap_.Tile Ptr ) as String
         Declare Function getFixedMirrors() as Integer 
+        Declare Function toString() as String
 End Type    
 
 Constructor MirrorPlacementMap ( w as integer, h as integer, __areaMap as Area_.Map Ptr )
     _areaMap = __areaMap
+    _height = h
+    _width = w
     for i as integer = 0 to _height - 1
         for j as integer = 0 to _width - 1
             for h as integer = 0 to 2
@@ -99,15 +104,55 @@ Function MirrorPlacementMap.getPossibilityString ( _tile as TileMap_.Tile Ptr ) 
     next i    
     returnString & = "]"
     return returnString
-End Function    
+End Function
+
+Function MirrorPlacementMap.getShortString(x as integer, y as integer) as String
+    Dim returnString as String = ""
+    if map(x,y,Mirror.None) = Bool.True then
+        returnString &= "*"
+    else
+        returnString &= " "
+    end if
+    if map(x,y,Mirror.NE_SW) = Bool.True then
+        returnString &= "/"
+    else
+        returnString &= " "
+    end if
+    if map(x,y,Mirror.NW_SE) = Bool.True then
+        returnString &= "\"
+    else
+        returnString &= " "
+    end if
+    return returnString
+End Function
+
+Function MirrorPlacementMap.toString () as String
+    Dim thisContentMap as ContentMap Ptr = new ContentMap(_width,_height)
+    for i as integer = 0 to (_height - 1)
+        for j as integer = 0 to (_width - 1)
+            Dim thisCoord as TileMap_.Coord Ptr = new TileMap_.Coord(j,i)
+            'print "bla: " & getShortString(j,i)
+            'sleep
+            thisContentMap->setCell(thisCoord,getShortString(j,i))
+            delete thisCoord
+        next j
+    next i    
+    Dim as String returnString = _areaMap->toString(thisContentMap)    
+    'delete thisContentMap
+    return returnString
+End Function
 
 Type RouteTile
-    _tile as TileMap_.Tile Ptr
-    inRoutes as integer = 0
-    _mirror(3) as Bool
-    Declare Constructor( __tile as TileMap_.Tile Ptr, __mirror as Mirror )
-    Declare Sub addMirror( __mirror as Mirror )
-    Declare Function inAllRoutes( totalRoutes as integer ) as Bool
+    private:
+        _tile as TileMap_.Tile Ptr
+        inRoutes as integer = 0
+        _mirror(3) as Bool
+    public:    
+        Declare Constructor( __tile as TileMap_.Tile Ptr, __mirror as Mirror )
+        Declare Sub addMirror( __mirror as Mirror )
+        Declare Function getMirror ( __mirror as Mirror ) as Bool
+        Declare Function inAllRoutes( totalRoutes as integer ) as Bool
+        Declare Function getTile() as TileMap_.Tile Ptr
 End Type
 
 Constructor RouteTile( __tile as TileMap_.Tile Ptr, __mirror as Mirror )
@@ -126,12 +171,20 @@ Sub RouteTile.addMirror( __mirror as Mirror )
     inRoutes += 1
 End Sub
 
+Function RouteTile.getMirror ( __mirror as Mirror ) as Bool
+    return _mirror(__mirror)
+End Function    
+
 Function RouteTile.inAllRoutes( totalRoutes as integer ) as Bool
     if inRoutes = totalRoutes then 
         return Bool.True
     end if    
     return Bool.False
 End Function
+
+Function RouteTile.getTile() as TileMap_.Tile Ptr
+    return _tile
+End Function    
 
 Type RouteStep
     _tile as TileMap_.Tile Ptr
@@ -254,7 +307,7 @@ Type PathTree
         Declare Function getRouteString () as String
         Declare Sub addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.Undefined, failMsg as String )
         Declare Sub printRoutesToFile ( fileName as String )
-        Declare Sub writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr )
+        Declare Sub writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr, fileName as String = "" )
         Declare Function hasUniqueSuccessRoute() as Bool
 End Type    
 
@@ -331,7 +384,7 @@ Function PathTree.findRouteTile( tileToFind as TileMap_.Tile Ptr ) as RouteTile 
             if thisRouteTile <> 0 then
                 'print "found RouteTile @";
                 'print thisRouteTile->_tile
-                if thisRouteTile->_tile = tileToFind then                    
+                if thisRouteTile->getTile() = tileToFind then                    
                     return thisRouteTile                    
                 end if    
             end if 
@@ -480,7 +533,7 @@ Sub PathTree.printRoutesToFile ( fileName as String )
     end if    
 End Sub    
 
-Sub PathTree.writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr )
+Sub PathTree.writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr, fileName as String = "" )
     if tileList <> 0 then
         Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(tileList)
         while thisIterator->hasNextObject() = Bool.True
@@ -489,14 +542,14 @@ Sub PathTree.writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr )
                 Dim eliminatedMirrors as integer = 0
                 Dim newEliminatedMirrors as integer = 0
                 for i as integer = 0 to 2
-                    if thisRouteTile->_mirror(i) = Bool.False then
-                        if _mirrorMap->canPlaceMirror(thisRouteTile->_tile,i) = Bool.True then
+                    if thisRouteTile->getMirror(i) = Bool.False then
+                        if _mirrorMap->canPlaceMirror(thisRouteTile->getTile(),i) = Bool.True then
                             'new information!
-                            print "elminated ["; mirrorText(i); "] on tile "; thisRouteTile->_tile->getCoordString()
+                            print "elminated ["; mirrorText(i); "] on tile "; thisRouteTile->getTile()->getCoordString()
                             newEliminatedMirrors += 1
                         end if    
                         eliminatedMirrors += 1
-                        _mirrorMap->removePossibleMirror(thisRouteTile->_tile,i) 
+                        _mirrorMap->removePossibleMirror(thisRouteTile->getTile(),i) 
                     end if    
                 next i
                 if eliminatedMirrors = 2 then
@@ -512,7 +565,12 @@ Sub PathTree.writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr )
             end if    
         wend    
         delete thisIterator
-    end if    
+    end if
+    if fileName <> "" then
+        open fileName for append as #1
+            print #1, _mirrorMap->toString()
+        close #1
+    end if
 End Sub
 
 Function PathTree.hasUniqueSuccessRoute() as Bool
@@ -1079,7 +1137,7 @@ Sub Robot.findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr, fileN
             print #1, getRouteDescription()
         close #1
         _pathTree->printRoutesToFile(fileName)
-        _pathTree->writeSuccessRoutesToMap(_mirrorPlacementMap)
+        _pathTree->writeSuccessRoutesToMap(_mirrorPlacementMap,fileName)
         if _pathTree->hasUniqueSuccessRoute() = Bool.True then
             pathFixed = Bool.True
         end if    
@@ -1489,17 +1547,21 @@ Sub Board._draw()
                     end if    
                 end if                
             else
-                print "Puzzle has unique solution giving the following robots to the player:"
-                Dim robotIterator as MyList.Iterator = MyList.Iterator(@requiredRobotList)
-                while robotIterator.hasNextObject() = Bool.True
-                    Dim thisRobot as Robot Ptr = robotIterator.getNextObject()
-                    print thisRobot->getId();
-                wend        
-                exit for
             end if
             sleep
         end if    
     next i
+    if possibilityMap->getFixedMirrors() = mirrorsToPlace then
+        cls
+        drawBoardBase()
+        print "Puzzle has unique solution giving the following robots to the player:"
+        Dim robotIterator as MyList.Iterator = MyList.Iterator(@requiredRobotList)
+        while robotIterator.hasNextObject() = Bool.True
+            Dim thisRobot as Robot Ptr = robotIterator.getNextObject()
+            'print thisRobot->getId();
+            drawTank(thisRobot)
+        wend        
+    end if
 End Sub
 
 Sub Board.printBoardToFile()
@@ -1520,8 +1582,8 @@ End Function
 '------------------------
 ScreenRes 640,480,32
 
-Dim w as integer = 3
-Dim h as integer = 3
+Dim w as integer = 4
+Dim h as integer = 4
 Dim b as Board Ptr = new Board(w,h)
 Cls
 Dim xoffset as integer = (640 - (32*w)) \ 2

@@ -3,6 +3,7 @@
 ' fbcoder 2010-2013
 ' -------------------
 #include once "bool.bas"
+#include once "newline.bas"
 
 Namespace MyList
 
@@ -12,6 +13,7 @@ Type ListNode
         nextNode as ListNode ptr = 0
         prevNode as ListNode ptr = 0
     public:    
+        Declare Operator cast() as String
         Declare Constructor (optr as any ptr)    
         Declare Sub debug()
         Declare Function getNext() as ListNode Ptr
@@ -63,6 +65,15 @@ Sub ListNode.debug()
     print "Next     : "; nextNode
     print "Previous : "; prevNode
 End Sub
+
+Operator ListNode.cast() as String
+    Dim returnString as String
+    returnString &= "-- Node -- [ " & str(@this) & " ]" & NEWLINE
+    returnString &= "Object   : " & str(objectPtr) & NEWLINE
+    returnString &= "Next     : " & str(nextNode) & NEWLINE
+    returnString &= "Previous : " & str(prevNode) & NEWLINE
+    return returnString
+End Operator
 
 Type List
     private:
@@ -143,7 +154,8 @@ Sub List.debug()
     Dim tempNode as ListNode ptr = firstNode
     Dim counter as integer = 0
     While tempNode <> 0        
-        tempNode->debug()
+        'tempNode->debug()
+        print tempNode
         tempNode = tempNode->getNext()
         counter += 1
         sleep
