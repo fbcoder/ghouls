@@ -80,6 +80,7 @@ Type Area
         Declare Function isFixed() as Bool        
         Declare Function markFixed( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
         Declare Function canPlace( _tile as TileMap_.Tile Ptr, _mirror as Mirror ) as Bool
+        declare sub playerSetsMirror( _tile as TileMap_.Tile ptr, _mirror as Mirror, _mirrorMap as MirrorMap.Map ptr )
 End Type
 
 Constructor Area ( _id as integer, startTile as TileMap_.Tile Ptr, _maxSize as integer, __map as MapPtr )
@@ -214,10 +215,25 @@ Function Area.isFixed() as Bool
     return mirrorFixed
 End Function
 
+sub Area.playerSetsMirror( _tile as TileMap_.Tile ptr, _mirror as Mirror, _mirrorMap as MirrorMap.Map ptr )
+    Dim thisIterator as MyList.Iterator ptr = new MyList.Iterator(tileList)
+    while thisIterator->hasNextObject() = Bool.True
+        Dim thisAreaTile as AreaTile ptr = thisIterator->getNextObject()
+        if thisAreaTile <> 0 then
+            if thisAreaTile->getTile() = _tile then
+                _mirrorMap->setMirror(_tile,_mirror)                
+            else
+                _mirrorMap->setMirror(thisAreaTile->getTile(),Mirror.None)                
+            end if
+        end if    
+    wend    
+end sub    
+
 Type Map
     private:
         _tileMap as TileMap_.TileMap Ptr
         _mirrorMap as MirrorMap.Map Ptr
+        playersMirrorMap as MirrorMap.Map Ptr
         areaList as MyList.List
         _map(6,6) as Area Ptr
         _width as integer
@@ -229,9 +245,10 @@ Type Map
         Declare Destructor ()
         Declare Sub setArea ( _tile as TileMap_.Tile Ptr , _area as Area Ptr )
         Declare Function getArea ( _tile as TileMap_.Tile Ptr ) as Area Ptr
-        Declare Sub setMirror( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
-        Declare Function toString( _contentMap as ContentMap Ptr = 0 ) as String
-        Declare Function getAreaCount() as Integer
+        Declare Sub setMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
+        Declare Function toString ( _contentMap as ContentMap Ptr = 0 ) as String
+        Declare Function getAreaCount () as Integer
+        Declare Sub playerPlacesMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
         'Declare Sub fixAreaOfTile( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
         'Declare Function areaFixed( _tile as TileMap_.Tile Ptr ) as Bool
 End Type
@@ -256,6 +273,7 @@ Constructor Map ( w as integer, h as integer, __tileMap as TileMap_.TileMap Ptr,
     _width = w
     _height = h    
     
+    playersMirrorMap = new MirrorMap.Map(_width,_height,_tileMap)
     for i as integer = 0 to (_height - 1)
         for j as integer = 0 to (_width - 1)
             _map(j,i) = 0
@@ -268,6 +286,7 @@ End Constructor
 
 Destructor Map () 
     ' have to write!
+    delete playersMirrorMap
 End Destructor
 
 ' Build the areas
@@ -409,7 +428,14 @@ End Function
 Function Map.getAreaCount() as Integer
     return areaList.getSize()
 End Function    
-   
+
+sub Map.playerPlacesMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
+    Dim thisArea as Area Ptr = getArea(_tile)
+    if thisArea <> 0 then
+        thisArea->playerSetsMirror(_tile,_mirror,playersMirrorMap)
+    end if    
+end sub
+
 ' ---------------------------------------------------------------------------
 ' Methods from ** Area ** Defined here because it needs methods from Map
 ' ---------------------------------------------------------------------------

@@ -1169,7 +1169,7 @@ Type Board
 
         ' SET THE RIGHT NUMBER HERE!!
         tileSprites(30) as any Ptr
-        spriteMap(TileMap_.DEFAULT_MAPWIDTH,TileMap_.DEFAULT_MAPHEIGHT) as integer
+        'spriteMap(TileMap_.DEFAULT_MAPWIDTH,TileMap_.DEFAULT_MAPHEIGHT) as integer
         backGroundSprite as any Ptr
                         
         ' Related to graphics
@@ -1196,7 +1196,7 @@ Type Board
         tankList as MyList.List
         Declare Sub placeTanks()
         Declare Function addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr
-        Declare Sub removeTank( _tile as TileMap_.Tile Ptr, _direction as Direction )
+        'Declare Sub removeTank( _tile as TileMap_.Tile Ptr, _direction as Direction )
 
         ' Internal helpers        
         Declare Sub createMaps()
@@ -1404,9 +1404,6 @@ Function Board.addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _ta
 	end if
 	return 0
 End Function
-
-Sub Board.removeTank( _tile as TileMap_.Tile Ptr, _direction as Direction )
-End Sub
 
 ' ----
 ' Methods and helper methods related to drawing the board etc.
