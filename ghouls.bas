@@ -8,6 +8,23 @@
 #include once "contentmap.bas"
 
 Randomize Timer
+
+dim shared directionMutations(2,3) as Direction
+
+directionMutations(Mirror.None, Direction.North) = Direction.North
+directionMutations(Mirror.None, Direction.East) = Direction.East
+directionMutations(Mirror.None, Direction.South) = Direction.South
+directionMutations(Mirror.None, Direction.West) = Direction.West
+
+directionMutations(Mirror.NE_SW, Direction.North) = Direction.East
+directionMutations(Mirror.NE_SW, Direction.East) = Direction.North
+directionMutations(Mirror.NE_SW, Direction.South) = Direction.West
+directionMutations(Mirror.NE_SW, Direction.West) = Direction.South
+
+directionMutations(Mirror.NW_SE, Direction.North) = Direction.West
+directionMutations(Mirror.NW_SE, Direction.East) = Direction.South
+directionMutations(Mirror.NW_SE, Direction.South) = Direction.East
+directionMutations(Mirror.NW_SE, Direction.West) = Direction.North 
     
 '---------------------------------------------------------------------------------------
 ' MirrorPlacementMap or Possibility Map, notes which mirrors are possible for each tile
@@ -628,9 +645,8 @@ Type Robot
         startTile as TileMap_.Tile Ptr = 0
         endTile as TileMap_.Tile Ptr = 0
         reflections as Integer = 0
-        path as MyList.List ptr = 0
-        'beamSpriteGenerator(4,4) as TileSprite
-        directionMutations(3,4) as Direction 
+        path as MyList.List ptr = 0        
+        'directionMutations(3,4) as Direction 
         Declare Sub addToPath( _tile as TileMap_.Tile Ptr, currentDir as Direction, prevDir as Direction )
         Declare Function getRouteDescription() as String
         
@@ -697,43 +713,8 @@ Constructor Robot( _id as integer, _startTile as TileMap_.Tile Ptr, startDir as 
         end
     end if
 
-    ' Give sprites for changing directions of the beam.
-'    beamSpriteGenerator(Direction.North,Direction.North) = TileSprite.Beam_NS
-'    beamSpriteGenerator(Direction.North,Direction.East) = TileSprite.Beam_ES
-'    beamSpriteGenerator(Direction.North,Direction.South) = TileSprite.Beam_NS
-'    beamSpriteGenerator(Direction.North,Direction.West) = TileSprite.Beam_SW
-'
-'    beamSpriteGenerator(Direction.East,Direction.North) = TileSprite.Beam_NW
-'    beamSpriteGenerator(Direction.East,Direction.East) = TileSprite.Beam_EW
-'    beamSpriteGenerator(Direction.East,Direction.South) = TileSprite.Beam_SW
-'    beamSpriteGenerator(Direction.East,Direction.West) = TileSprite.Beam_EW
-'
-'    beamSpriteGenerator(Direction.South,Direction.North) = TileSprite.Beam_NS
-'    beamSpriteGenerator(Direction.South,Direction.East) = TileSprite.Beam_NE
-'    beamSpriteGenerator(Direction.South,Direction.South) = TileSprite.Beam_NS
-'    beamSpriteGenerator(Direction.South,Direction.West) = TileSprite.Beam_NW
-'
-'    beamSpriteGenerator(Direction.West,Direction.North) = TileSprite.Beam_NE
-'    beamSpriteGenerator(Direction.West,Direction.East) = TileSprite.Beam_EW
-'    beamSpriteGenerator(Direction.West,Direction.South) = TileSprite.Beam_ES
-'    beamSpriteGenerator(Direction.West,Direction.West) = TileSprite.Beam_EW
-    
-    ' Get new directions when bouncing on a mirror
-    directionMutations(Mirror.None, Direction.North) = Direction.North
-    directionMutations(Mirror.None, Direction.East) = Direction.East
-    directionMutations(Mirror.None, Direction.South) = Direction.South
-    directionMutations(Mirror.None, Direction.West) = Direction.West
-    
-    directionMutations(Mirror.NE_SW, Direction.North) = Direction.East
-    directionMutations(Mirror.NE_SW, Direction.East) = Direction.North
-    directionMutations(Mirror.NE_SW, Direction.South) = Direction.West
-    directionMutations(Mirror.NE_SW, Direction.West) = Direction.South
-    
-    directionMutations(Mirror.NW_SE, Direction.North) = Direction.West
-    directionMutations(Mirror.NW_SE, Direction.East) = Direction.South
-    directionMutations(Mirror.NW_SE, Direction.South) = Direction.East
-    directionMutations(Mirror.NW_SE, Direction.West) = Direction.North
-    
+    ' Give sprites for changing directions of the beam.    
+    ' Get new directions when bouncing on a mirror   
 End Constructor
 
 Destructor Robot()
@@ -1189,6 +1170,7 @@ type Board
         ' getters for the outside world
         Declare Function getBoardFileName() as String
         declare function getTankList () as MyList.List ptr
+        declare function getRequiredTankList () as MyList.List ptr
         declare function getAreaMap () as Area_.Map ptr
         declare function getTileMap () as TileMap_.TileMap ptr
         declare function getWidth () as integer
@@ -1206,21 +1188,12 @@ Constructor Board( _boardWidth as integer, _boardHeight as integer )
         ' Generate maps and populate
         createMaps()
         
-        'createAreas()        
-        'placeRandomMirrors()
         boardFileName = "boards/board_" & date & "_" & str(int(timer)) & ".txt"
         printBoardToFile()
-        
-        ' Prepare the sprites
-        'createBackGroundSprite()        
-        'loadSprites()
-        
-        ' Place tanks on the board
+
         tankList = new MyList.List ()
         requiredTankList = new MyList.List ()
-        placeTanks()
-        
-        ' Try to solve the Board        
+        placeTanks()                
 	else
 		print "Error: board can be 6 x 6 at most."
         sleep
@@ -1264,11 +1237,6 @@ Sub Board.placeTanks()
         robots(index) = addTank( _tileMap->getTile(0,i), Direction.East, index + 1)
     next i
 End Sub    
-
-'Sub Board.setOffset( _xOffset as integer, _yOffset as integer )
-'	xOffset = _xOffset
-'	yOffset = _yOffset
-'End Sub
 
 Sub Board.createMaps()
 	_tilemap = new TileMap_.TileMap(boardWidth,boardHeight)
@@ -1386,6 +1354,10 @@ End Function
 
 function Board.getTankList () as MyList.List ptr
     return tankList
+end function
+
+function Board.getRequiredTankList () as MyList.List ptr
+    return requiredTankList
 end function
 
 function Board.getAreaMap () as Area_.Map ptr

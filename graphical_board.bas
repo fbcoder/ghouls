@@ -87,14 +87,16 @@ type GraphicalBoard
         yOffset as integer
         spriteSize as integer = 32
         
+        'sprites
         backgroundSprite as any ptr
         originalTankSprites(4) as any ptr
         tankSprites(4,24) as any ptr
         originalBeamSprites(6) as any ptr
         beamSprites(6,24) as any ptr
+        beamSpriteGenerator(4,4) as RaySprite
         mirrorSprites(2) as any ptr
         
-        declare function getTileFromMouseCoords () as TileMap_.Tile ptr
+        declare function getTileFromMouseCoords ( mouseX as integer, mouseY as integer ) as TileMap_.Tile ptr
         declare sub manipulateMirror ( _tile as TileMap_.Tile ptr )
         declare sub drawTankBeam ( _robot as Robot ptr )
         declare sub initgraphics ()
@@ -110,11 +112,12 @@ type GraphicalBoard
         declare sub drawBoardBase ()
         declare sub drawAllMirrors ()
         declare sub drawTank( _robot as Robot ptr )
+        declare sub drawBeams ()
     public:
         declare constructor ( _xOffset as integer, _yOffset as integer, __board as Board ptr )
         declare destructor ()
         declare sub _draw ()
-        declare sub handleMouse ()        
+        declare sub handleMouseClick ( mouseX as integer, mouseY as integer )        
 end type
 
 constructor GraphicalBoard ( _xOffset as integer, _yOffset as integer, __board as Board ptr )
@@ -137,7 +140,7 @@ constructor GraphicalBoard ( _xOffset as integer, _yOffset as integer, __board a
         sleep
         end
     end if    
-    tankList = _board->getTankList()
+    tankList = _board->getRequiredTankList()
     if tankList = 0 then
         print "Error: No tanks!"
         sleep
@@ -155,17 +158,43 @@ sub GraphicalBoard.initGraphics ()
     loadSprites()
     createBackGroundSprite()
     colorTanksAndBeams()
+    beamSpriteGenerator(Direction.North,Direction.North) = RaySprite.NS
+    beamSpriteGenerator(Direction.North,Direction.East) = RaySprite.ES
+    beamSpriteGenerator(Direction.North,Direction.South) = RaySprite.NS
+    beamSpriteGenerator(Direction.North,Direction.West) = RaySprite.SW
+
+    beamSpriteGenerator(Direction.East,Direction.North) = RaySprite.NW
+    beamSpriteGenerator(Direction.East,Direction.East) = RaySprite.EW
+    beamSpriteGenerator(Direction.East,Direction.South) = RaySprite.SW
+    beamSpriteGenerator(Direction.East,Direction.West) = RaySprite.EW
+
+    beamSpriteGenerator(Direction.South,Direction.North) = RaySprite.NS
+    beamSpriteGenerator(Direction.South,Direction.East) = RaySprite.NE
+    beamSpriteGenerator(Direction.South,Direction.South) = RaySprite.NS
+    beamSpriteGenerator(Direction.South,Direction.West) = RaySprite.NW
+
+    beamSpriteGenerator(Direction.West,Direction.North) = RaySprite.NE
+    beamSpriteGenerator(Direction.West,Direction.East) = RaySprite.EW
+    beamSpriteGenerator(Direction.West,Direction.South) = RaySprite.ES
+    beamSpriteGenerator(Direction.West,Direction.West) = RaySprite.EW
 end sub    
 
-'sub GraphicalBoard.drawTankBeam ( _robot as Robot ptr )
-'    if _robot <> 0 then
-'        Dim currentTile as TileMap_.Tile ptr = _robot->getStartTile()
-'        Dim currentDirection as Direction = _robot->getStartDirection()
-'        while currentTile <> 0
-'            
-'        wend    
-'    end if   
-'end sub 
+sub GraphicalBoard.drawTankBeam ( _robot as Robot ptr )
+    if _robot <> 0 then
+        Dim currentTile as TileMap_.Tile ptr = _robot->getStartTile()
+        Dim currentDirection as Direction = _robot->getStartDirection()
+        while currentTile <> 0
+            Dim newDirection as Direction
+            Dim newTile as TileMap_.Tile Ptr
+            Dim thisMirror as Mirror = _areaMap->getPlayerMirror(currentTile)
+            newDirection = directionMutations(thisMirror,currentDirection)
+            put (getSpriteX(currentTile),getSpriteY(currentTile)),beamSprites(beamSpriteGenerator(currentDirection,newDirection), _robot->getId() - 1),trans
+            newTile = currentTile->getNeighbor(newDirection)
+            currentTile = newTile
+            currentDirection = newDirection
+        wend    
+    end if   
+end sub 
 
 sub GraphicalBoard._draw ()    
     cls
@@ -178,6 +207,24 @@ sub GraphicalBoard._draw ()
         Dim thisTank as Robot ptr = tankIterator->getNextObject()
         if thisTank <> 0 then
             drawTank(thisTank)
+            drawTankBeam(thisTank)
+        else
+            print "Error: TankObject can't be null!"
+            sleep
+            end
+        end if
+    wend    
+    delete tankIterator
+end sub
+
+sub GraphicalBoard.drawBeams()
+    drawBoardBase()
+    drawAllMirrors()
+    Dim tankIterator as MyList.Iterator ptr = new MyList.Iterator(tankList)
+    while tankIterator->hasNextObject() = Bool.True
+        Dim thisTank as Robot ptr = tankIterator->getNextObject()
+        if thisTank <> 0 then            
+            drawTankBeam(thisTank)
         else
             print "Error: TankObject can't be null!"
             sleep
@@ -316,13 +363,13 @@ Function GraphicalBoard.getSPriteY(_tileY as integer) as integer
 End Function
 
 Sub GraphicalBoard.drawBoardBase()
-    print "draw base: "
+    'print "draw base: "
     Put (xOffset,yOffset), backGroundSprite, pset
-    print "done."
+    'print "done."
 End Sub
 
 Sub GraphicalBoard.drawAllMirrors()
-	print "draw mirrors: "
+	'print "draw mirrors: "
     for i as integer = 0 to (_height - 1)
 		for j as integer = 0 to (_width - 1)
             Dim t as TileMap_.Tile Ptr = _tileMap->getTile(j,i)
@@ -338,7 +385,7 @@ Sub GraphicalBoard.drawAllMirrors()
             end if
 		next j
 	next i
-    print "done."
+    'print "done."
 End Sub
 
 Sub GraphicalBoard.drawTank( _robot as Robot ptr )
@@ -363,9 +410,43 @@ Sub GraphicalBoard.drawTank( _robot as Robot ptr )
 	end if
 End Sub
 
+'------------------------------
+' Methods for input control
+'------------------------------
+function GraphicalBoard.getTileFromMouseCoords ( mouseX as integer, mouseY as integer ) as TileMap_.Tile ptr
+    if mouseX >= xOffset then
+        if mouseY >= yOffset then
+            if mouseX <= xOffset + (_width * spriteSize) then
+                if mouseY <= yOffset + (_height * spriteSize) then
+                    return _tileMap->getTile((mouseX - xOffset) \ spriteSize,(mouseY - yOffset) \ spriteSize)
+                end if
+            end if
+        end if
+    end if
+    return 0
+end function
+
+sub GraphicalBoard.handleMouseClick ( mouseX as integer, mouseY as integer )
+    Dim clickedTile as TileMap_.Tile ptr = getTileFromMouseCoords(mouseX,mouseY)
+    if clickedTile <> 0 then
+        Dim playerMirror as Mirror = _areaMap->getPlayerMirror(clickedTile)
+        if playerMirror = Mirror.None then
+            playerMirror = Mirror.NE_SW
+        elseif playerMirror = Mirror.NE_SW then
+            playerMirror = Mirror.NW_SE
+        else
+            playerMirror = Mirror.NE_SW
+        end if    
+        _areaMap->playerPlacesMirror(clickedTile,playerMirror)
+        drawBeams()
+    end if
+end sub
+
 '---------------------------------------------
 ' Init Graphics mode and the graphical board
 '---------------------------------------------
+declare sub mainLoop ( gb as GraphicalBoard ptr )
+
 ScreenRes 640,480,32
 
 Dim w as integer = 4
@@ -378,9 +459,38 @@ Dim solvable as Bool = b->solve()
 if solvable = Bool.True then
     Dim gb as GraphicalBoard ptr = new GraphicalBoard(xoffset,yoffset,b)
     gb->_draw()
+    mainLoop (gb)
     delete gb
-    sleep
 end if
 delete b
+
+'----------
+' mainLoop
+'----------
+sub mainLoop ( gb as GraphicalBoard ptr )
+    if gb <> 0 then
+        Dim k as string = ""
+        Dim mouseClicked as Bool = Bool.False
+        while k <> chr(27)
+            k = inkey
+            Dim mouseX as integer
+            Dim mouseY as integer
+            Dim mouseButton as integer
+            getMouse mouseX, mouseY,,mouseButton
+            if mouseButton and &b001 then
+                if mouseClicked = Bool.False then                
+                    mouseClicked = Bool.True
+                end if                        
+            else
+                if mouseClicked = Bool.True then
+                    'print "click"
+                    gb->handleMouseClick(mouseX,mouseY)
+                    mouseClicked = Bool.False
+                end if
+            end if            
+            sleep 1,1
+        wend    
+    end if    
+end sub
 
 System
