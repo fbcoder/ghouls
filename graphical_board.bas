@@ -4,14 +4,20 @@
 declare function changeColorOfPixel ( byval src as uinteger, byval dest as uinteger, byval param as any ptr ) as uinteger
 
 function changeColorOfPixel ( byval src as uinteger, byval dest as uinteger, byval param as any ptr ) as uinteger
-    dim replaceColor as uinteger = *cptr(uinteger ptr, param)
-    if src = rgb(&h00,&h00,&hff) then
-        return replaceColor
-    elseif src = rgb(&hff,&h00,&hff) then
-        return dest
+    if param <> 0 then
+        dim replaceColor as uinteger = *cptr(uinteger ptr, param)
+        if src = rgb(&h00,&h00,&hff) then
+            return replaceColor
+        elseif src = rgb(&hff,&h00,&hff) then
+            return dest
+        else
+            return src
+        end if
     else
-        return src
-    end if    
+        print "replacementcolor can't be null"
+        sleep
+        end
+    end if
 end function
 
 enum MirrorSprite
@@ -85,7 +91,7 @@ type GraphicalBoard
         originalTankSprites(4) as any ptr
         tankSprites(4,24) as any ptr
         originalBeamSprites(6) as any ptr
-        beamSprites(4,24) as any ptr
+        beamSprites(6,24) as any ptr
         mirrorSprites(2) as any ptr
         
         declare function getTileFromMouseCoords () as TileMap_.Tile ptr
@@ -151,15 +157,15 @@ sub GraphicalBoard.initGraphics ()
     colorTanksAndBeams()
 end sub    
 
-sub GraphicalBoard.drawTankBeam ( _robot as Robot ptr )
-    if _robot <> 0 then
-        Dim currentTile as TileMap_.Tile ptr = _robot->getStartTile()
-        Dim currentDirection as Direction = _robot->getStartDirection()
-        while currentTile <> 0
-            
-        wend    
-    end if   
-end sub 
+'sub GraphicalBoard.drawTankBeam ( _robot as Robot ptr )
+'    if _robot <> 0 then
+'        Dim currentTile as TileMap_.Tile ptr = _robot->getStartTile()
+'        Dim currentDirection as Direction = _robot->getStartDirection()
+'        while currentTile <> 0
+'            
+'        wend    
+'    end if   
+'end sub 
 
 sub GraphicalBoard._draw ()    
     cls
@@ -170,7 +176,13 @@ sub GraphicalBoard._draw ()
     Dim tankIterator as MyList.Iterator ptr = new MyList.Iterator(tankList)
     while tankIterator->hasNextObject() = Bool.True
         Dim thisTank as Robot ptr = tankIterator->getNextObject()
-        drawTank(thisTank)
+        if thisTank <> 0 then
+            drawTank(thisTank)
+        else
+            print "Error: TankObject can't be null!"
+            sleep
+            end
+        end if
     wend    
     delete tankIterator
 end sub    
@@ -229,6 +241,11 @@ sub GraphicalBoard.colorTanksAndBeams()
     for i as integer = 0 to 24
         for j as integer = 0 to 3
             Dim tempImage as any ptr = imageCreate(spriteSize,spriteSize)
+            if originalTankSprites(j) = 0 then
+                print "Error: originalTankSprite can't be null!"
+                sleep
+                end
+            end if    
             put tempImage,(0,0),originalTankSprites(j),pset
             tankSprites(j,i) = imageCreate(spriteSize,spriteSize)            
             put tankSprites(j,i),(0,0),tempImage, custom, @changeColorOfPixel,@tankColor(i)
@@ -236,7 +253,12 @@ sub GraphicalBoard.colorTanksAndBeams()
         next j
         for j as integer = 0 to 5
             Dim tempImage as any ptr = imageCreate(spriteSize,spriteSize)
-            put tempImage,(0,0),originalBeamSprites(j),pset
+            if originalBeamSprites(j) = 0 then
+                print "Error: originalBeamSprite can't be null!"
+                sleep
+                end
+            end if    
+            put tempImage,(0,0),originalBeamSprites(j),pset            
             beamSprites(j,i) = imageCreate(spriteSize,spriteSize)            
             put beamSprites(j,i),(0,0),tempImage, custom, @changeColorOfPixel,@tankColor(i)
             imagedestroy(tempImage)

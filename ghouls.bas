@@ -8,21 +8,6 @@
 #include once "contentmap.bas"
 
 Randomize Timer
-
-Enum TileSprite
-    Mirror_NE_SW
-    Mirror_NW_SE
-    Beam_NE
-    Beam_NS
-    Beam_NW
-    Beam_ES
-    Beam_EW
-    Beam_SW
-    Tank_N
-    Tank_E
-    Tank_S
-    Tank_W
-End Enum
     
 '---------------------------------------------------------------------------------------
 ' MirrorPlacementMap or Possibility Map, notes which mirrors are possible for each tile
@@ -621,20 +606,6 @@ Function PathTreeIterator.getNextLeaf() as RouteStep Ptr
     return 0
 End Function
 
-'---------------------------------
-' Move object used by Robot/Tank
-'---------------------------------
-Type Move
-    _tile as TileMap_.Tile Ptr
-    _tileSprite as TileSprite
-    Declare Constructor( __tile as TileMap_.Tile Ptr, __tileSprite as TileSprite )
-End Type
-
-Constructor Move( __tile as TileMap_.Tile Ptr, __tileSprite as TileSprite )
-    _tile = __tile
-    _tileSprite = __tileSprite
-End Constructor
-
 '------------
 ' Robot/Tank
 '------------
@@ -658,7 +629,7 @@ Type Robot
         endTile as TileMap_.Tile Ptr = 0
         reflections as Integer = 0
         path as MyList.List ptr = 0
-        beamSpriteGenerator(4,4) as TileSprite
+        'beamSpriteGenerator(4,4) as TileSprite
         directionMutations(3,4) as Direction 
         Declare Sub addToPath( _tile as TileMap_.Tile Ptr, currentDir as Direction, prevDir as Direction )
         Declare Function getRouteDescription() as String
@@ -727,25 +698,25 @@ Constructor Robot( _id as integer, _startTile as TileMap_.Tile Ptr, startDir as 
     end if
 
     ' Give sprites for changing directions of the beam.
-    beamSpriteGenerator(Direction.North,Direction.North) = TileSprite.Beam_NS
-    beamSpriteGenerator(Direction.North,Direction.East) = TileSprite.Beam_ES
-    beamSpriteGenerator(Direction.North,Direction.South) = TileSprite.Beam_NS
-    beamSpriteGenerator(Direction.North,Direction.West) = TileSprite.Beam_SW
-
-    beamSpriteGenerator(Direction.East,Direction.North) = TileSprite.Beam_NW
-    beamSpriteGenerator(Direction.East,Direction.East) = TileSprite.Beam_EW
-    beamSpriteGenerator(Direction.East,Direction.South) = TileSprite.Beam_SW
-    beamSpriteGenerator(Direction.East,Direction.West) = TileSprite.Beam_EW
-
-    beamSpriteGenerator(Direction.South,Direction.North) = TileSprite.Beam_NS
-    beamSpriteGenerator(Direction.South,Direction.East) = TileSprite.Beam_NE
-    beamSpriteGenerator(Direction.South,Direction.South) = TileSprite.Beam_NS
-    beamSpriteGenerator(Direction.South,Direction.West) = TileSprite.Beam_NW
-
-    beamSpriteGenerator(Direction.West,Direction.North) = TileSprite.Beam_NE
-    beamSpriteGenerator(Direction.West,Direction.East) = TileSprite.Beam_EW
-    beamSpriteGenerator(Direction.West,Direction.South) = TileSprite.Beam_ES
-    beamSpriteGenerator(Direction.West,Direction.West) = TileSprite.Beam_EW
+'    beamSpriteGenerator(Direction.North,Direction.North) = TileSprite.Beam_NS
+'    beamSpriteGenerator(Direction.North,Direction.East) = TileSprite.Beam_ES
+'    beamSpriteGenerator(Direction.North,Direction.South) = TileSprite.Beam_NS
+'    beamSpriteGenerator(Direction.North,Direction.West) = TileSprite.Beam_SW
+'
+'    beamSpriteGenerator(Direction.East,Direction.North) = TileSprite.Beam_NW
+'    beamSpriteGenerator(Direction.East,Direction.East) = TileSprite.Beam_EW
+'    beamSpriteGenerator(Direction.East,Direction.South) = TileSprite.Beam_SW
+'    beamSpriteGenerator(Direction.East,Direction.West) = TileSprite.Beam_EW
+'
+'    beamSpriteGenerator(Direction.South,Direction.North) = TileSprite.Beam_NS
+'    beamSpriteGenerator(Direction.South,Direction.East) = TileSprite.Beam_NE
+'    beamSpriteGenerator(Direction.South,Direction.South) = TileSprite.Beam_NS
+'    beamSpriteGenerator(Direction.South,Direction.West) = TileSprite.Beam_NW
+'
+'    beamSpriteGenerator(Direction.West,Direction.North) = TileSprite.Beam_NE
+'    beamSpriteGenerator(Direction.West,Direction.East) = TileSprite.Beam_EW
+'    beamSpriteGenerator(Direction.West,Direction.South) = TileSprite.Beam_ES
+'    beamSpriteGenerator(Direction.West,Direction.West) = TileSprite.Beam_EW
     
     ' Get new directions when bouncing on a mirror
     directionMutations(Mirror.None, Direction.North) = Direction.North
@@ -766,16 +737,16 @@ Constructor Robot( _id as integer, _startTile as TileMap_.Tile Ptr, startDir as 
 End Constructor
 
 Destructor Robot()
-    if path <> 0 then       
-        Dim iteratedNode as MyList.ListNode ptr = path->getFirst()
-        While iteratedNode <> 0
-            Dim as MyList.ListNode ptr nextNode = iteratedNode->getNext()
-            Dim as Move ptr thisMove = iteratedNode->getObject()
-            delete thisMove
-            iteratedNode = NextNode
-        Wend
-        delete path
-    end if
+'    if path <> 0 then       
+'        Dim iteratedNode as MyList.ListNode ptr = path->getFirst()
+'        While iteratedNode <> 0
+'            Dim as MyList.ListNode ptr nextNode = iteratedNode->getNext()
+'            Dim as Move ptr thisMove = iteratedNode->getObject()
+'            delete thisMove
+'            iteratedNode = NextNode
+'        Wend
+'        delete path
+'    end if
     if _pathTree <> 0 then
         delete _pathTree
     end if
@@ -1074,8 +1045,8 @@ Sub Robot.addToPath( _tile as TileMap_.Tile Ptr, newDir as Direction, currentDir
         if _mirrorMap->getMirror(_tile) > Mirror.None then
             reflections += 1
         end if
-        Dim newMove as Move Ptr = new Move( _tile, beamSpriteGenerator( currentDir, newDir ) )
-        path->addObject( newMove )
+        'Dim newMove as Move Ptr = new Move( _tile, beamSpriteGenerator( currentDir, newDir ) )
+        'path->addObject( newMove )
     else
     end if
 End Sub
@@ -1086,10 +1057,10 @@ Sub Robot.shootBeam()
     Dim currentDirection as Direction = beamStartDirection
     
     'Erase old pathdata and start with new path.
-    if path <> 0 then        
-        delete path
-        path = new MyList.List()
-    end if    
+'    if path <> 0 then        
+'        delete path
+'        path = new MyList.List()
+'    end if    
     
     print "** Constructing Path:"
     While currentTile <> 0
@@ -1175,26 +1146,26 @@ type Board
         boardFileName as String
 
         ' SET THE RIGHT NUMBER HERE!!
-        tileSprites(30) as any Ptr
+        'tileSprites(30) as any Ptr
         'spriteMap(TileMap_.DEFAULT_MAPWIDTH,TileMap_.DEFAULT_MAPHEIGHT) as integer
-        backGroundSprite as any Ptr
+        'backGroundSprite as any Ptr
                         
         ' Related to graphics
-        spriteSize as integer = 32
-        xOffset as integer = 0
-        yOffset as integer = 0
-        Declare Function getSpriteX( _tile as TileMap_.Tile Ptr ) as integer
-        Declare Function getSpriteX( _tileX as integer ) as integer
-		Declare Function getSpriteY( _tile as TileMap_.Tile Ptr ) as integer
-        Declare Function getSpriteY( _tileY as integer ) as integer
-		Declare Sub drawTank(__robot as Robot ptr )
-		Declare Sub drawBoardBase()
-		Declare Sub drawAllMirrors()
-		Declare Sub drawBeam( __robot as Robot ptr )
-		Declare Sub drawBorder( img as any Ptr, length as integer, n as integer, e as integer, s as integer, w as integer )
-        Declare Function loadSpriteFromFile( fileName as String ) as any ptr
-        Declare Sub loadSprites()
-        Declare Sub createBackGroundSprite()
+        'spriteSize as integer = 32
+        'xOffset as integer = 0
+        'yOffset as integer = 0
+        'Declare Function getSpriteX( _tile as TileMap_.Tile Ptr ) as integer
+        'Declare Function getSpriteX( _tileX as integer ) as integer
+		'Declare Function getSpriteY( _tile as TileMap_.Tile Ptr ) as integer
+        'Declare Function getSpriteY( _tileY as integer ) as integer
+		'Declare Sub drawTank(__robot as Robot ptr )
+		'Declare Sub drawBoardBase()
+		'Declare Sub drawAllMirrors()
+		'Declare Sub drawBeam( __robot as Robot ptr )
+		'Declare Sub drawBorder( img as any Ptr, length as integer, n as integer, e as integer, s as integer, w as integer )
+        'Declare Function loadSpriteFromFile( fileName as String ) as any ptr
+        'Declare Sub loadSprites()
+        'Declare Sub createBackGroundSprite()
         
         ' Robots
         tankPositionTaken(4,6) as Bool
@@ -1299,86 +1270,11 @@ End Sub
 '	yOffset = _yOffset
 'End Sub
 
-' functions for graphics
-Sub Board.drawBorder( img as any Ptr, length as integer, n as integer, e as integer, s as integer, w as integer )
-    Dim borderColor as uinteger = rgb(128,128,128)
-    Dim ul_x as integer = 0
-    Dim ul_y as integer = 0
-    Dim ur_x as integer = length - 1
-    Dim ur_y as integer = 0
-    Dim bl_x as integer = 0
-    Dim bl_y as integer = length - 1
-    Dim br_x as integer = length - 1
-    Dim br_y as integer = length - 1
-    if n = 1 then Line img,(ul_x,ul_y)-(ur_x,ur_y),borderColor
-    if e = 1 then Line img,(ur_x,ur_y)-(br_x,br_y),borderColor
-    if s = 1 then Line img,(bl_x,bl_y)-(br_x,br_y),borderColor
-    if w = 1 then Line img,(ul_x,ul_y)-(bl_x,bl_y),borderColor
-End Sub
-
-Function Board.loadSpriteFromFile( fileName as String ) as any ptr
-    Dim _img as any ptr = imageCreate(32,32)
-    Dim returnValue as integer = bload(fileName,_img)
-    if returnValue <> 0 then
-        print "Failed to load ";fileName; ", error nr. ";returnValue
-        sleep
-        end
-    else
-        return _img
-    end if
-    return 0
-End Function
-
-Sub Board.loadSprites()
-    ' Load sprites for mirrors
-    tileSprites(TileSprite.Mirror_NE_SW) = loadSpriteFromFile("pictures/mirror_orig.bmp")
-    tileSprites(TileSprite.Mirror_NW_SE) = loadSpriteFromFile("pictures/mirror_flipped.bmp")
-    
-    ' Load sprites for the beams
-    tileSprites(TileSprite.Beam_NE) = loadSpriteFromFile("pictures/beam_ne.bmp")
-    tileSprites(TileSprite.Beam_NS) = loadSpriteFromFile("pictures/beam_ns.bmp")
-    tileSprites(TileSprite.Beam_NW) = loadSpriteFromFile("pictures/beam_nw.bmp")
-    tileSprites(TileSprite.Beam_ES) = loadSpriteFromFile("pictures/beam_es.bmp")
-    tileSprites(TileSprite.Beam_EW) = loadSpriteFromFile("pictures/beam_ew.bmp")
-    tileSprites(TileSprite.Beam_SW) = loadSpriteFromFile("pictures/beam_sw.bmp")
-    
-    ' Load sprites for the tanks
-    tileSprites(TileSprite.Tank_N) = loadSpriteFromFile("pictures/tank_n.bmp")
-    tileSprites(TileSprite.Tank_E) = loadSpriteFromFile("pictures/tank_e.bmp")
-    tileSprites(TileSprite.Tank_S) = loadSpriteFromFile("pictures/tank_s.bmp")
-    tileSprites(TileSprite.Tank_W) = loadSpriteFromFile("pictures/tank_w.bmp")
-End Sub
-
 Sub Board.createMaps()
 	_tilemap = new TileMap_.TileMap(boardWidth,boardHeight)
     _mirrorMap = new MirrorMap.Map(boardWidth,boardHeight,_tileMap)
     _areaMap = new Area_.Map(boardWidth,boardHeight,_tileMap,_mirrorMap)
 End Sub
-
-Sub Board.createBackGroundSprite()    
-    print "createBackGroundSprite"
-    backGroundSprite = imageCreate(boardWidth * spriteSize,boardHeight * spriteSize)
-    Dim floorColor as uinteger = rgb(0,128,128)
-    for i as integer = 0 to (boardHeight - 1)
-        for j as integer = 0 to (boardWidth - 1)
-            Dim n as integer = 0
-            Dim e as integer = 0
-            Dim s as integer = 0
-            Dim w as integer = 0
-            Dim t as TileMap_.Tile Ptr = _tileMap->getTile(j,i)
-            if t <> 0 then
-                if _areaMap->getArea(t->getNeighbor(Direction.North)) <> _areaMap->getArea(t) then n = 1
-                if _areaMap->getArea(t->getNeighbor(Direction.East)) <> _areaMap->getArea(t) then e = 1
-                if _areaMap->getArea(t->getNeighbor(Direction.South)) <> _areaMap->getArea(t) then s = 1
-                if _areaMap->getArea(t->getNeighbor(Direction.West)) <> _areaMap->getArea(t) then w = 1            
-            end if
-            Dim thisImg as any ptr = imagecreate(spriteSize,spriteSize)
-            Line thisImg,(0,0)-(spriteSize-1,spriteSize-1),floorColor,BF
-            drawBorder(thisImg,spriteSize,n,e,s,w)
-            put backGroundSprite, (j * spriteSize, i * spriteSize), thisImg, pset
-        next j
-    next i    
-End Sub  
 
 ' ----
 ' Methods for placing tanks on the board.
@@ -1420,109 +1316,6 @@ Function Board.addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _ta
 	end if
 	return 0
 End Function
-
-' ----
-' Methods and helper methods related to drawing the board etc.
-' ----
-
-Function Board.getSpriteX(_tile as TileMap_.Tile Ptr) as integer
-	if _tile <> 0 then
-		return (_tile->getCoord()->x * 32 + xOffset)
-	end if
-	return -1
-End Function
-
-Function Board.getSpriteX(_tileX as integer) as integer
-	return (_tileX * 32 + xOffset)
-End Function
-
-Function Board.getSpriteY(_tile as TileMap_.Tile Ptr) as integer
-	if _tile <> 0 then
-		return (_tile->getCoord()->y * 32 + yOffset)
-	end if
-	return -1
-End Function
-
-Function Board.getSPriteY(_tileY as integer) as integer
-	return (_tileY * 32 + yOffset)
-End Function
-
-Sub Board.drawBoardBase()
-    Put (xOffset,yOffset), backGroundSprite, pset
-End Sub
-
-Sub Board.drawAllMirrors()
-	for i as integer = 0 to (boardHeight - 1)
-		for j as integer = 0 to (boardWidth - 1)
-            Dim t as TileMap_.Tile Ptr = _tileMap->getTile(j,i)
-            if t <> 0 then
-                if _mirrorMap->getMirror(t) <> Mirror.None then
-                    if _mirrorMap->getMirror(t) = Mirror.NE_SW then
-                        Put (getSpriteX(j), getSpriteY(i)), tileSprites(TileSprite.Mirror_NE_SW), trans
-                    end if
-                    if _mirrorMap->getMirror(t) = Mirror.NW_SE then
-                        Put (getSpriteX(j), getSpriteY(i)), tileSprites(TileSprite.Mirror_NW_SE), trans
-                    end if
-                end if
-            end if
-		next j
-	next i
-End Sub
-
-Sub Board.drawTank(__robot as Robot ptr )
-	if __robot <> 0 then
-		' draw the tank
-		Dim firstDirection as Direction = __robot->getStartDirection()
-		Dim robotX as integer = __robot->getStartX() * 32 + xOffset
-		Dim robotY as integer = __robot->getStartY() * 32 + yOffset
-		Dim sprite as TileSprite = TileSprite.Tank_N
-		IF firstDirection = Direction.East then
-			sprite = TileSprite.Tank_E
-		ElseIf firstDirection = Direction.South then
-			sprite = TileSprite.Tank_S
-		ElseIf firstDirection = Direction.West then
-			sprite = TileSprite.Tank_W
-		End if
-		Put (robotX,robotY), tileSprites(sprite),trans
-		' draw the number of reflections at endtile
-		Dim endX as integer = __robot->getEndX() * 32 + xOffset
-		Dim endY as integer = __robot->getEndY() * 32 + yOffset
-		Draw String (endX+10,endY+10), str(__robot->getReflections())
-	end if
-End Sub
-
-Sub Board.drawBeam( __robot as Robot ptr )
-    if __robot <> 0 then
-        Dim _path as MyList.List ptr = __robot->getPath()
-        'print "** start drawing beams **"
-        'print "size of this path: "; _path->getSize()
-        'sleep
-        '_path->debug()
-        Dim thisNode as MyList.ListNode Ptr = _path->getFirst()
-        while thisNode <> 0
-            Dim thisMove as Move ptr = thisNode->getObject()
-            if thisMove <> 0 then
-                if thisMove->_tile <> 0 then
-                    Dim _x as integer = getSpriteX(thisMove->_tile)
-                    Dim _y as integer = getSpriteY(thisMove->_tile)
-                    'print "Draw path for robot, tileSprite: "; thisMove->_tileSprite
-                    'thisMove->_tile->debug()
-                    'sleep
-                    Put (_x, _y), tileSprites(thisMove->_tileSprite), trans
-                    'locate 23,1
-                    'print spriteX; ", "; spriteY
-                    'sleep
-                else
-                    print "Error: No tile in Move object."
-                    sleep
-                    end
-                end if
-            end if
-            thisNode = thisNode->getNext()
-            'sleep
-        wend
-    end if
-End Sub
 
 function Board.solve() as Bool
     Dim mirrorsToPlace as integer = _areaMap->getAreaCount()
