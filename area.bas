@@ -246,11 +246,10 @@ Type Map
         Declare Sub setArea ( _tile as TileMap_.Tile Ptr , _area as Area Ptr )
         Declare Function getArea ( _tile as TileMap_.Tile Ptr ) as Area Ptr
         Declare Sub setMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
+        declare function getPlayerMirror ( _tile as TileMap_.Tile ptr ) as Mirror
         Declare Function toString ( _contentMap as ContentMap Ptr = 0 ) as String
         Declare Function getAreaCount () as Integer
         Declare Sub playerPlacesMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
-        'Declare Sub fixAreaOfTile( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
-        'Declare Function areaFixed( _tile as TileMap_.Tile Ptr ) as Bool
 End Type
 
 Constructor Map ( w as integer, h as integer, __tileMap as TileMap_.TileMap Ptr, __mirrorMap as MirrorMap.Map Ptr )
@@ -435,6 +434,10 @@ sub Map.playerPlacesMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
         thisArea->playerSetsMirror(_tile,_mirror,playersMirrorMap)
     end if    
 end sub
+
+function Map.getPlayerMirror ( _tile as TileMap_.Tile ptr ) as Mirror
+    return playersMirrorMap->getMirror(_tile)
+end function    
 
 ' ---------------------------------------------------------------------------
 ' Methods from ** Area ** Defined here because it needs methods from Map

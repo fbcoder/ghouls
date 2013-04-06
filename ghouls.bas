@@ -23,14 +23,10 @@ Enum TileSprite
     Tank_S
     Tank_W
 End Enum
-
-' Type forwarding for Board
-'Type BoardPtr as Board Ptr
     
-'---------------------
-' Path Tree and Leafs
-'---------------------
-
+'---------------------------------------------------------------------------------------
+' MirrorPlacementMap or Possibility Map, notes which mirrors are possible for each tile
+'---------------------------------------------------------------------------------------
 Type MirrorPlacementMap
     private:
         _areaMap as Area_.Map Ptr
@@ -142,6 +138,9 @@ Function MirrorPlacementMap.toString () as String
     return returnString
 End Function
 
+' ---------------------------------------
+' RouteTile - For tiles used in a route.
+' ---------------------------------------
 Type RouteTile
     private:
         _tile as TileMap_.Tile Ptr
@@ -219,6 +218,9 @@ Destructor FailedRoute()
     delete thisIterator
 End Destructor
 
+' ---------
+' Path Leaf
+' ---------
 Type PathLeaf
     private:
         _tile as TileMap_.Tile Ptr
@@ -284,7 +286,9 @@ Function PathLeaf.getTile() as TileMap_.Tile Ptr
     return _tile
 End Function
 
-' Tree
+' ---------
+' Path Tree
+' ---------
 Type PathTree
     private:
         ' first Leaf in the tree
@@ -582,6 +586,9 @@ Function PathTree.hasUniqueSuccessRoute() as Bool
     return bool.False
 End Function
 
+'------------------
+' PathTreeIterator
+'------------------
 Type PathTreeIterator
     private:
         currentNode as PathLeaf Ptr
@@ -1155,10 +1162,10 @@ Function Robot.hasPathFixed() as Bool
     return pathFixed
 End Function    
 
-'-------------
-' ** BOARD! **
-'-------------
-Type Board
+'----------------
+' ** The Board **
+'----------------
+type Board
     private:
         _tileMap as TileMap_.TileMap ptr
         _areaMap as Area_.Map Ptr
@@ -1184,7 +1191,6 @@ Type Board
 		Declare Sub drawBoardBase()
 		Declare Sub drawAllMirrors()
 		Declare Sub drawBeam( __robot as Robot ptr )
-		Declare Sub drawTile()
 		Declare Sub drawBorder( img as any Ptr, length as integer, n as integer, e as integer, s as integer, w as integer )
         Declare Function loadSpriteFromFile( fileName as String ) as any ptr
         Declare Sub loadSprites()
@@ -1193,11 +1199,11 @@ Type Board
         ' Robots
         tankPositionTaken(4,6) as Bool
         robots(24) as Robot ptr
-        tankList as MyList.List
+        tankList as MyList.List ptr
+        requiredTankList as MyList.List Ptr
         Declare Sub placeTanks()
-        Declare Function addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr
-        'Declare Sub removeTank( _tile as TileMap_.Tile Ptr, _direction as Direction )
-
+        Declare Function addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr        
+    
         ' Internal helpers        
         Declare Sub createMaps()
         'Declare Sub addArea( newArea as Area Ptr )
@@ -1207,15 +1213,20 @@ Type Board
     public:
         Declare Constructor( _boardWidth as integer, _boardHeight as integer )
         Declare Destructor()
-        Declare Sub _draw()                
-        Declare Sub setOffset( _xOffset as integer, yOffset as integer )
+        declare function solve() as Bool                 
+        'Declare Sub setOffset( _xOffset as integer, yOffset as integer )
+        ' getters for the outside world
         Declare Function getBoardFileName() as String
-        
+        declare function getTankList () as MyList.List ptr
+        declare function getAreaMap () as Area_.Map ptr
+        declare function getTileMap () as TileMap_.TileMap ptr
+        declare function getWidth () as integer
+        declare function getHeight () as integer
         'Declare Function getArea ( _tile as TileMap_.Tile Ptr ) as Area Ptr
         'Declare Function getMirror ( _tile as TileMap_.Tile Ptr ) as Mirror
         'Declare Sub setArea ( _tile as TileMap_.Tile Ptr, _area as Area Ptr )
         'Declare Sub setMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )        
-End Type
+end type
 
 Constructor Board( _boardWidth as integer, _boardHeight as integer )
 	if _boardWidth <= 6 and _boardHeight <= 6 then		
@@ -1230,10 +1241,12 @@ Constructor Board( _boardWidth as integer, _boardHeight as integer )
         printBoardToFile()
         
         ' Prepare the sprites
-        createBackGroundSprite()        
-        loadSprites()
+        'createBackGroundSprite()        
+        'loadSprites()
         
         ' Place tanks on the board
+        tankList = new MyList.List ()
+        requiredTankList = new MyList.List ()
         placeTanks()
         
         ' Try to solve the Board        
@@ -1254,6 +1267,8 @@ Destructor Board
             delete robots(i)
         end if            
     next i
+    delete tankList
+    delete requiredTankList
 End Destructor
 
 Sub Board.placeTanks()
@@ -1279,11 +1294,12 @@ Sub Board.placeTanks()
     next i
 End Sub    
 
-Sub Board.setOffset( _xOffset as integer, _yOffset as integer )
-	xOffset = _xOffset
-	yOffset = _yOffset
-End Sub
+'Sub Board.setOffset( _xOffset as integer, _yOffset as integer )
+'	xOffset = _xOffset
+'	yOffset = _yOffset
+'End Sub
 
+' functions for graphics
 Sub Board.drawBorder( img as any Ptr, length as integer, n as integer, e as integer, s as integer, w as integer )
     Dim borderColor as uinteger = rgb(128,128,128)
     Dim ul_x as integer = 0
@@ -1394,7 +1410,7 @@ Function Board.addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _ta
 		newRobot->shootBeam()
 		if newRobot->getReflections() > 0 and isEndPointOfOtherRoute = Bool.False then
 			tankPositionTaken(edge,index) = Bool.True
-			tankList.addObject(newRobot)
+			tankList->addObject(newRobot)
             return newRobot
 		else
 			delete newRobot
@@ -1408,8 +1424,6 @@ End Function
 ' ----
 ' Methods and helper methods related to drawing the board etc.
 ' ----
-Sub Board.drawTile()
-End Sub
 
 Function Board.getSpriteX(_tile as TileMap_.Tile Ptr) as integer
 	if _tile <> 0 then
@@ -1510,23 +1524,22 @@ Sub Board.drawBeam( __robot as Robot ptr )
     end if
 End Sub
 
-Sub Board._draw()
-    Dim requiredRobotList as MyList.List = MyList.List()
+function Board.solve() as Bool
     Dim mirrorsToPlace as integer = _areaMap->getAreaCount()
     Dim possibilityMap as MirrorPlacementMap Ptr = new MirrorPlacementMap(boardWidth,boardHeight,_areaMap)
     for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)        
         if robots(i) <> 0 then
-            cls
-            drawBoardBase()
-            drawAllMirrors()
+            'cls
+            'drawBoardBase()
+            'drawAllMirrors()
             'sleep
             if possibilityMap->getFixedMirrors() < mirrorsToPlace then
-                drawTank(robots(i))        
-                drawBeam(robots(i))
+                'drawTank(robots(i))        
+                'drawBeam(robots(i))
                 if robots(i)->hasPathFixed() = Bool.False then
                     robots(i)->findAlternativePaths(possibilityMap,boardFileName)
                     if robots(i)->hasPathFixed() = Bool.True then
-                        requiredRobotList.addObjectIfNew(robots(i))                        
+                        requiredTankList->addObjectIfNew(robots(i))                        
                     end if    
                     print "fixed ";possibilityMap->getFixedMirrors();"/";mirrorsToPlace;" mirrors."
                     if i > 0 then
@@ -1535,7 +1548,7 @@ Sub Board._draw()
                                 if robots(j)->hasPathFixed() = Bool.False then
                                     robots(j)->findAlternativePaths(possibilityMap,boardFileName)
                                     if robots(j)->hasPathFixed() = Bool.True then
-                                        requiredRobotList.addObjectIfNew(robots(j))                        
+                                        requiredTankList->addObjectIfNew(robots(j))                        
                                     end if    
                                     print "fixed ";possibilityMap->getFixedMirrors();"/";mirrorsToPlace;" mirrors."
                                 end if
@@ -1545,21 +1558,28 @@ Sub Board._draw()
                 end if                
             else
             end if
-            sleep
+            'sleep
         end if    
     next i
     if possibilityMap->getFixedMirrors() = mirrorsToPlace then
-        cls
-        drawBoardBase()
-        print "Puzzle has unique solution giving the following robots to the player:"
-        Dim robotIterator as MyList.Iterator = MyList.Iterator(@requiredRobotList)
-        while robotIterator.hasNextObject() = Bool.True
-            Dim thisRobot as Robot Ptr = robotIterator.getNextObject()
-            'print thisRobot->getId();
-            drawTank(thisRobot)
-        wend        
+        'cls
+        'drawBoardBase()
+        print "Board has unique solution giving the following robots to the player:"        
+        Dim robotIterator as MyList.Iterator ptr = new MyList.Iterator(requiredTankList)
+        while robotIterator->hasNextObject() = Bool.True
+            Dim thisRobot as Robot Ptr = robotIterator->getNextObject()
+            print thisRobot->getId();
+            'drawTank(thisRobot)
+        wend
+        delete robotIterator
+        sleep
+        return Bool.True
+    else
+        print "Board has no unique solution, multiple mirror combinations possible."
+        sleep
     end if
-End Sub
+    return Bool.False
+end function
 
 Sub Board.printBoardToFile()
     open boardFileName for output as #1
@@ -1570,6 +1590,26 @@ End Sub
 Function Board.getBoardFileName() as String
     return boardFileName
 End Function
+
+function Board.getTankList () as MyList.List ptr
+    return tankList
+end function
+
+function Board.getAreaMap () as Area_.Map ptr
+    return _areaMap
+end function
+
+function Board.getTileMap () as TileMap_.TileMap ptr
+    return _tileMap
+end function    
+
+function Board.getWidth () as integer
+    return boardWidth
+end function
+
+function Board.getHeight () as integer
+    return boardHeight
+end function    
 '-----------------
 ' End ** Board **
 '-----------------
@@ -1577,17 +1617,3 @@ End Function
 '------------------------
 ' Init Screen and Board.
 '------------------------
-ScreenRes 640,480,32
-
-Dim w as integer = 4
-Dim h as integer = 4
-Dim b as Board Ptr = new Board(w,h)
-Cls
-Dim xoffset as integer = (640 - (32*w)) \ 2
-Dim yoffset as integer = (480 - (32*h)) \ 2
-b->setOffset(xoffset,yoffset)
-b->_draw()
-Sleep
-delete b
-
-System
