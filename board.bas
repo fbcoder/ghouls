@@ -136,7 +136,7 @@ Function MirrorPlacementMap.toString () as String
         next j
     next i    
     Dim as String returnString = _areaMap->toString(thisContentMap)    
-    'delete thisContentMap
+    delete thisContentMap
     return returnString
 End Function
 
@@ -463,7 +463,6 @@ Function PathTree.printRoute ( listNode as MyList.ListNode Ptr ) as String
         if _routeStep <> 0 then            
             returnString &= _routeStep->_tile->getCoordString() & "--"
             returnString &= "[" & mirrorText(_routeStep->_mirror) & "]-->"
-            'returnString &= "----" & NEWLINE            
         end if
         listNode = listNode->getNext()
     wend 
@@ -652,6 +651,9 @@ Type Robot
         
         ' Private helpers for pathFinding
         Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
+        Declare Sub tryMirrorNone ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
+        Declare Sub tryMirrorNESW ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
+        Declare Sub tryMirrorNWSE ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
         Declare Sub findNextMirror( node as PathLeaf ptr, bounces as integer )
         Declare Function areaCanHaveEmptyTile( node as PathLeaf Ptr ) as Bool
         Declare Function areaHasMirror ( node as PathLeaf ptr ) as Bool
@@ -765,40 +767,52 @@ Sub Robot.checkChild_Mirror( _mirror as Mirror, node as PathLeaf ptr, bounces as
     end if
 End Sub
 
+sub Robot.tryMirrorNESW ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
+    if _mirrorPlacementMap->canPlaceMirror(_tile,Mirror.NE_SW) = Bool.True then
+        if _areaMap->getArea(_tile)->canPlace(_tile,Mirror.NE_SW) = Bool.True then
+            checkChild_Mirror(Mirror.NE_SW,node,bounces)
+        else
+            _pathTree->addFailedRoute(node,Mirror.NE_SW,"Tile already fixed for this Area.")
+        end if                
+    else
+        Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(_tile)
+        _pathTree->addFailedRoute(node,Mirror.NE_SW,failMsg)
+    end if
+end sub
+
+sub Robot.tryMirrorNWSE ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
+    if _mirrorPlacementMap->canPlaceMirror(_tile,Mirror.NW_SE) = Bool.True then                
+        if _areaMap->getArea(_tile)->canPlace(_tile,Mirror.NW_SE) = Bool.True then
+            checkChild_Mirror(Mirror.NW_SE,node,bounces)
+        else
+            _pathTree->addFailedRoute(node,Mirror.NW_SE,"Tile already fixed for this Area.")
+        end if
+    else
+        Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(_tile)
+        _pathTree->addFailedRoute(node,Mirror.NW_SE,failMsg)                
+    end if
+end sub    
+    
+sub Robot.tryMirrorNone ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
+    if _mirrorPlacementMap->canPlaceMirror(_tile,Mirror.None) = Bool.True then                
+        if _areaMap->getArea(_tile)->canPlace(_tile,Mirror.None) = Bool.True then
+            checkChild_NoMirror(node,bounces)
+        else
+            _pathTree->addFailedRoute(node,Mirror.None,"Tile already fixed for this Area.")
+        end if
+    else
+        Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(_tile)
+        _pathTree->addFailedRoute(node,Mirror.None,failMsg)
+    end if
+end sub
+
 Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )   
     if node <> 0 then
         Dim thisTile as TileMap_.Tile Ptr = node->getTile()
         if thisTile <> 0 then            
-            if _mirrorPlacementMap->canPlaceMirror(thisTile,Mirror.NE_SW) = Bool.True then
-                if _areaMap->getArea(thisTile)->canPlace(thisTile,Mirror.NE_SW) = Bool.True then
-                    checkChild_Mirror(Mirror.NE_SW,node,bounces)
-                else
-                    _pathTree->addFailedRoute(node,Mirror.NE_SW,"Tile already fixed for this Area.")
-                end if                
-            else
-                Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(thisTile)
-                _pathTree->addFailedRoute(node,Mirror.NE_SW,failMsg)
-            end if
-            if _mirrorPlacementMap->canPlaceMirror(thisTile,Mirror.NW_SE) = Bool.True then                
-                if _areaMap->getArea(thisTile)->canPlace(thisTile,Mirror.NW_SE) = Bool.True then
-                checkChild_Mirror(Mirror.NW_SE,node,bounces)
-                else
-                    _pathTree->addFailedRoute(node,Mirror.NW_SE,"Tile already fixed for this Area.")
-                end if
-            else
-                Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(thisTile)
-                _pathTree->addFailedRoute(node,Mirror.NW_SE,failMsg)                
-            end if
-            if _mirrorPlacementMap->canPlaceMirror(thisTile,Mirror.None) = Bool.True then                
-                if _areaMap->getArea(thisTile)->canPlace(thisTile,Mirror.None) = Bool.True then
-                    checkChild_NoMirror(node,bounces)
-                else
-                    _pathTree->addFailedRoute(node,Mirror.None,"Tile already fixed for this Area.")
-                end if
-            else
-                Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(thisTile)
-                _pathTree->addFailedRoute(node,Mirror.None,failMsg)
-            end if    
+            tryMirrorNESW(node,bounces,thisTile)
+            tryMirrorNWSE(node,bounces,thisTile)
+            tryMirrorNone(node,bounces,thisTile)    
         else
             ' at edge, find out if endtile is reached.
             if bounces = reflections then
@@ -1125,28 +1139,6 @@ type Board
         boardWidth as integer
         boardHeight as integer
         boardFileName as String
-
-        ' SET THE RIGHT NUMBER HERE!!
-        'tileSprites(30) as any Ptr
-        'spriteMap(TileMap_.DEFAULT_MAPWIDTH,TileMap_.DEFAULT_MAPHEIGHT) as integer
-        'backGroundSprite as any Ptr
-                        
-        ' Related to graphics
-        'spriteSize as integer = 32
-        'xOffset as integer = 0
-        'yOffset as integer = 0
-        'Declare Function getSpriteX( _tile as TileMap_.Tile Ptr ) as integer
-        'Declare Function getSpriteX( _tileX as integer ) as integer
-		'Declare Function getSpriteY( _tile as TileMap_.Tile Ptr ) as integer
-        'Declare Function getSpriteY( _tileY as integer ) as integer
-		'Declare Sub drawTank(__robot as Robot ptr )
-		'Declare Sub drawBoardBase()
-		'Declare Sub drawAllMirrors()
-		'Declare Sub drawBeam( __robot as Robot ptr )
-		'Declare Sub drawBorder( img as any Ptr, length as integer, n as integer, e as integer, s as integer, w as integer )
-        'Declare Function loadSpriteFromFile( fileName as String ) as any ptr
-        'Declare Sub loadSprites()
-        'Declare Sub createBackGroundSprite()
         
         ' Robots
         tankPositionTaken(4,6) as Bool
@@ -1154,19 +1146,16 @@ type Board
         tankList as MyList.List ptr
         requiredTankList as MyList.List Ptr
         Declare Sub placeTanks()
-        Declare Function addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr        
+        Declare Function addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr
     
         ' Internal helpers        
         Declare Sub createMaps()
-        'Declare Sub addArea( newArea as Area Ptr )
-        'Declare Sub createAreas()
-        'Declare Sub placeRandomMirrors()
         Declare Sub printBoardToFile()
     public:
         Declare Constructor( _boardWidth as integer, _boardHeight as integer )
         Declare Destructor()
         declare function solve() as Bool                 
-        'Declare Sub setOffset( _xOffset as integer, yOffset as integer )
+
         ' getters for the outside world
         Declare Function getBoardFileName() as String
         declare function getTankList () as MyList.List ptr
@@ -1174,11 +1163,7 @@ type Board
         declare function getAreaMap () as Area_.Map ptr
         declare function getTileMap () as TileMap_.TileMap ptr
         declare function getWidth () as integer
-        declare function getHeight () as integer
-        'Declare Function getArea ( _tile as TileMap_.Tile Ptr ) as Area Ptr
-        'Declare Function getMirror ( _tile as TileMap_.Tile Ptr ) as Mirror
-        'Declare Sub setArea ( _tile as TileMap_.Tile Ptr, _area as Area Ptr )
-        'Declare Sub setMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )        
+        declare function getHeight () as integer        
 end type
 
 Constructor Board( _boardWidth as integer, _boardHeight as integer )
