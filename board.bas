@@ -32,7 +32,7 @@ directionMutations(Mirror.NW_SE, Direction.West) = Direction.North
 Type MirrorPlacementMap
     private:
         _areaMap as Area_.Map Ptr
-        map(6,6,3) as Bool
+        map(TileMap_.MAX_MAPWIDTH,TileMap_.MAX_MAPHEIGHT,3) as Bool
         _width as integer
         _height as integer
         fixedMirrors as integer = 0
@@ -634,18 +634,19 @@ Type Robot
         pathFixed as Bool = Bool.False
         _mirrorPlacementMap as MirrorPlacementMap Ptr
         id as integer
+        
+        startTile as TileMap_.Tile Ptr = 0
         startX as integer
         startY as integer
-        endX as integer
-        endY as integer
-        tempMirrorMap(TileMap_.DEFAULT_MAPWIDTH,TileMap_.DEFAULT_MAPHEIGHT) as Mirror
         beamStartDirection as Direction
-        beamEndDirection as Direction
-        startTile as TileMap_.Tile Ptr = 0
         endTile as TileMap_.Tile Ptr = 0
+        endX as integer
+        endY as integer        
+        beamEndDirection as Direction                        
         reflections as Integer = 0
+        
         path as MyList.List ptr = 0        
-        'directionMutations(3,4) as Direction 
+        ' directionMutations(3,4) as Direction 
         Declare Sub addToPath( _tile as TileMap_.Tile Ptr, currentDir as Direction, prevDir as Direction )
         Declare Function getRouteDescription() as String
         
@@ -1167,7 +1168,7 @@ type Board
 end type
 
 Constructor Board( _boardWidth as integer, _boardHeight as integer )
-	if _boardWidth <= 6 and _boardHeight <= 6 then		
+	if _boardWidth <= 6 and _boardHeight <= 6 and _boardWidth > 0 and _boardHeight > 0 then		
         boardWidth = _boardWidth
 		boardHeight = _boardHeight		        
         ' Generate maps and populate
@@ -1180,7 +1181,7 @@ Constructor Board( _boardWidth as integer, _boardHeight as integer )
         requiredTankList = new MyList.List ()
         placeTanks()                
 	else
-		print "Error: board can be 6 x 6 at most."
+		print "Error: Board dimensions must be larger than 0 and smaller than 7"
         sleep
         end
 	end if

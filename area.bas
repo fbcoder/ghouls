@@ -235,7 +235,7 @@ Type Map
         _mirrorMap as MirrorMap.Map Ptr
         playersMirrorMap as MirrorMap.Map Ptr
         areaList as MyList.List
-        _map(6,6) as Area Ptr
+        _map(TileMap_.MAX_MAPWIDTH,TileMap_.MAX_MAPHEIGHT) as Area Ptr
         _width as integer
         _height as integer
         Declare Sub buildMap()

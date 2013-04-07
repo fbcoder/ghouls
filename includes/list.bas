@@ -5,7 +5,7 @@
 #include once "bool.bas"
 #include once "newline.bas"
 
-Namespace MyList
+namespace MyList
 
 Type ListNode    
     private:
@@ -225,4 +225,4 @@ Function Iterator.hasNextObject() as Bool
     return Bool.False
 End Function
 
-End Namespace
+end namespace

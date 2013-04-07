@@ -3,8 +3,8 @@
 
 NameSpace TileMap_
 
-Const DEFAULT_MAPWIDTH = 6
-Const DEFAULT_MAPHEIGHT = 6
+Const MAX_MAPWIDTH = 6
+Const MAX_MAPHEIGHT = 6
 
 Type Coord
     x as integer
@@ -100,7 +100,7 @@ Type TileMap
     private:
         mapHeight as Integer
         mapWidth as Integer
-        map(DEFAULT_MAPWIDTH,DEFAULT_MAPHEIGHT) as Tile Ptr
+        map(MAX_MAPWIDTH,MAX_MAPHEIGHT) as Tile Ptr
     public:
         Declare Constructor( _width as Integer, _height as Integer )
         Declare Destructor()

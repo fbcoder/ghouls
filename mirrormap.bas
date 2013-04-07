@@ -1,20 +1,20 @@
 #include once "includes/mirror.bas"
 #include once "tilemap.bas"
 
-NameSpace MirrorMap
-    Type Map
+namespace MirrorMap
+    type Map
         private:
-            _tileMap as TileMap_.TileMap Ptr            
-            _map(6,6) as Mirror
+            _tileMap as TileMap_.TileMap ptr            
+            _map(TileMap_.MAX_MAPWIDTH,TileMap_.MAX_MAPHEIGHT) as Mirror
             _width as integer
             _height as integer
         public:
-            Declare Constructor ( w as integer, h as integer, __tileMap as TileMap_.TileMap Ptr)
-            Declare Sub setMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
-            Declare Function getMirror ( _tile as TileMap_.Tile Ptr ) as Mirror
-    End Type
+            declare constructor ( w as integer, h as integer, __tileMap as TileMap_.TileMap ptr )
+            declare sub setMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
+            declare function getMirror ( _tile as TileMap_.Tile Ptr ) as Mirror
+    end type
     
-    Constructor Map( w as integer, h as integer, __tileMap as TileMap_.TileMap Ptr)
+    constructor Map ( w as integer, h as integer, __tileMap as TileMap_.TileMap Ptr )
         _tileMap = __tileMap
         _width = w
         _height = h
@@ -24,13 +24,13 @@ NameSpace MirrorMap
                 _map(j,i) = Mirror.None
             next j
         next i  
-    End Constructor
+    end constructor
     
-    Sub Map.setMirror( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
+    sub Map.setMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
         _map(_tile->getCoord()->x,_tile->getCoord()->y) = _mirror
-    End Sub
+    end sub
     
-    Function Map.getMirror( _tile as TileMap_.Tile Ptr ) as Mirror
+    function Map.getMirror ( _tile as TileMap_.Tile Ptr ) as Mirror
         return _map(_tile->getCoord()->x,_tile->getCoord()->y)
-    End Function    
-End NameSpace
+    end function    
+end namespace
