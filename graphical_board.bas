@@ -1,5 +1,5 @@
 ' Graphical board.
-#include once "ghouls.bas"
+#include once "board.bas"
 
 declare function changeColorOfPixel ( byval src as uinteger, byval dest as uinteger, byval param as any ptr ) as uinteger
 
