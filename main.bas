@@ -1,32 +1,34 @@
 #include once "graphical_board.bas"
 
-'Declare mainloop
-declare sub mainLoop ( gb as GraphicalBoard ptr )
+' -------------
+' Declare loops
+' -------------
+declare sub mainLoop ()
+declare sub puzzleLoop ( gb as GraphicalBoard ptr )
+declare sub menuLoop ()
+declare function getSolvableBoard ( w as integer, h as integer ) as Board ptr
 
-'---------------------------------------------
-' Init Graphics mode and the graphical board
-'---------------------------------------------
-screenres 640,480,32
+'---------------------
+' Create Board
+'---------------------
+function getSolvableBoard ( w as integer, h as integer ) as Board ptr            
+    ' Try at most 10 times to get a board with a unique solution.
+    for i as integer = 0 to 9
+        dim b as Board Ptr = new Board(w,h)
+        dim solvable as Bool = b->solve()
+        if solvable = Bool.True then        
+            return b
+        end if       
+        delete b    
+    next i
+    
+    return 0
+end function
 
-dim w as integer = 6
-dim h as integer = 4
-cls
-dim xoffset as integer = (640 - (32*w)) \ 2
-dim yoffset as integer = (480 - (32*h)) \ 2
-dim b as Board Ptr = new Board(w,h)
-dim solvable as Bool = b->solve()
-if solvable = Bool.True then
-    dim gb as GraphicalBoard ptr = new GraphicalBoard(xoffset,yoffset,b)
-    gb->_draw()
-    mainloop(gb)
-    delete gb
-end if
-delete b
-
-'--------------
-' The MainLoop
-'--------------
-sub mainLoop ( gb as GraphicalBoard ptr )
+'---------------------------------
+' The loop for handling a puzzle.
+'---------------------------------
+sub puzzleLoop ( gb as GraphicalBoard ptr )
     if gb <> 0 then
         Dim k as string = ""
         Dim mouseClicked as Bool = Bool.False
@@ -49,7 +51,29 @@ sub mainLoop ( gb as GraphicalBoard ptr )
             end if            
             sleep 1,1
         wend    
+    end if
+end sub
+
+'--------------
+' The MainLoop
+'--------------
+sub mainLoop ()
+    ' Init Graphics mode
+    screenres 640,480,32
+    
+    dim b as Board Ptr = getSolvableBoard(6,4)
+    if b <> 0 then
+        dim gb as GraphicalBoard ptr = new GraphicalBoard(b)
+        if gb <> 0 then
+            cls
+            gb->_draw()
+            puzzleLoop(gb)
+            delete gb
+        end if    
+        delete b
     end if    
 end sub
+
+mainLoop()
 
 System

@@ -79,11 +79,14 @@ Type List
     private:
         size as Integer = 0
         firstNode as ListNode ptr = 0
+        lastNode as ListNode ptr = 0
     public:        
-        Declare Sub addObject(p as any ptr)    
+        declare operator cast () as String
+        declare sub addObject (p as any ptr)    
+        declare sub addObjectTail (p as any ptr)
+        declare sub addObjectBefore ( objectBefore as any ptr, objectToAdd as any ptr )
         Declare Sub addNode(nodePtr as ListNode ptr)
         Declare Sub debug ()
-        'Declare Sub deleteObjects ()
         Declare Function getSize() as integer
         Declare Function getFirst() as ListNode ptr
         Declare Function containsObject( objectPtr as Any Ptr ) as Bool
@@ -91,12 +94,14 @@ Type List
         Declare Destructor
 End Type
 
+' Add object to the head of the list
 Sub List.addObject(_object as any ptr)
     if _object <> 0 then
         Dim as ListNode ptr newNode = new ListNode(_object)
         if newNode <> 0 then
             if firstNode = 0 then
                 firstNode = newNode
+                lastNode = newNode
                 firstNode->setNext(0)
                 firstNode->setPrev(0)
             else
@@ -117,6 +122,68 @@ Sub List.addObject(_object as any ptr)
         end        
     end if    
 End Sub
+
+' Add object to the tail.
+sub List.addObjectTail(_object as any ptr)
+    if _object <> 0 then
+        Dim as ListNode ptr newNode = new ListNode(_object)
+        if newNode <> 0 then
+            if lastNode = 0 then
+                firstNode = newNode
+                lastNode = newNode
+                firstNode->setNext(0)
+                firstNode->setPrev(0) 
+            else
+                lastNode->setNext(newNode)
+                newNode->setPrev(lastNode)
+                newNode->setNext(0)
+                lastNode = newNode
+            end if
+            size += 1
+        else
+            print "Error: no new Listnode!"
+            sleep
+            end
+        end if
+    else
+        print "Error: can't create node without object."
+        sleep
+        end        
+    end if     
+end sub
+
+sub List.addObjectBefore ( objectBefore as any ptr, objectToAdd as any ptr )
+    if size > 0 then
+        dim currentNode as ListNode Ptr = firstNode
+        dim newNode as ListNode ptr = 0
+        dim foundNode as Bool = Bool.False
+        while currentNode <> 0
+            if currentNode->getObject() = objectBefore then
+                foundNode = Bool.True
+                newNode = new ListNode(objectToAdd)
+                newNode->setPrev(currentNode->getPrev())
+                newNode->setNext(currentNode)
+                if currentNode->getPrev() <> 0 then
+                    currentNode->getPrev()->setNext(newNode)
+                else
+                    firstNode = newNode
+                end if
+                currentNode->setPrev(newNode)
+                exit while
+            end if
+            currentNode = currentNode->getNext()
+        wend
+        if foundNode = Bool.False then
+            print "Error: objectBefore not found in list!"
+            sleep
+            end
+        end if
+    else
+        print "Error: can't add objectBefore in empty list!"
+        sleep
+        end
+    end if
+end sub    
 
 Function List.getSize() as Integer
     return size
@@ -155,7 +222,7 @@ Sub List.debug()
     Dim counter as integer = 0
     While tempNode <> 0        
         'tempNode->debug()
-        print tempNode
+        'print tempNode
         tempNode = tempNode->getNext()
         counter += 1
         sleep
@@ -164,6 +231,23 @@ Sub List.debug()
     Print "Contains "; counter; " elements."
     Print "--"
 End Sub    
+
+operator List.cast () as string
+    dim returnString as string = "-- List --" & NEWLINE
+    dim tempNode as ListNode ptr = firstNode
+    dim counter as integer = 0
+    while tempNode <> 0        
+        'tempNode->debug()
+        returnString &= *tempNode
+        tempNode = tempNode->getNext()
+        counter += 1
+        'sleep
+    wend
+    returnString &= "--" & NEWLINE
+    returnString &= "Contains " & str(counter) & " elements." & NEWLINE
+    returnString &= "--" & NEWLINE
+    return returnString    
+end operator
 
 Destructor List ()
     Dim as ListNode ptr iteratedNode = firstNode    
@@ -174,6 +258,9 @@ Destructor List ()
     Wend
 End Destructor
 
+'-------------------
+' The List Iterator
+'-------------------
 Type Iterator
     private:
         _list as List Ptr

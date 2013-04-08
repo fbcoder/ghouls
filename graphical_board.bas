@@ -115,18 +115,17 @@ type GraphicalBoard
         declare sub drawTank( _robot as Robot ptr )
         declare sub drawBeams ()
     public:
-        declare constructor ( _xOffset as integer, _yOffset as integer, __board as Board ptr )
+        declare constructor ( __board as Board ptr )
         declare destructor ()
         declare sub _draw ()
         declare sub handleMouseClick ( mouseX as integer, mouseY as integer )        
 end type
 
-constructor GraphicalBoard ( _xOffset as integer, _yOffset as integer, __board as Board ptr )
-    xOffset = _xOffset
-    yOffset = _yOffset
+constructor GraphicalBoard ( __board as Board ptr )
+    ' Get board.
     _board = __board
     
-    ' get required data from the board:
+    ' Get required data from the board:    
     _width = _board->getWidth()
     _height = _board->getHeight()
     _areaMap = _board->getAreaMap()
@@ -143,7 +142,19 @@ constructor GraphicalBoard ( _xOffset as integer, _yOffset as integer, __board a
     end if    
     tankList = _board->getRequiredTankList()
     if tankList = 0 then
-        print "Error: No tanks!"
+        print "Error: No list of tanks!"
+        sleep
+        end
+    end if    
+    
+    ' Calculate offset based on resolution
+    dim resolution_w as integer
+    dim resolution_h as integer
+    screeninfo resolution_w, resolution_h
+    xOffset = (resolution_w - (_width * spriteSize)) \ 2
+    yOffset = (resolution_h - (_height * spriteSize)) \ 2
+    if xOffset < 0 or yOffset < 0 then
+        print "Error: Resolution too small to contain board."
         sleep
         end
     end if    

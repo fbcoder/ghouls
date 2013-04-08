@@ -1147,6 +1147,7 @@ type Board
         tankList as MyList.List ptr
         requiredTankList as MyList.List Ptr
         Declare Sub placeTanks()
+        declare sub addTankToList( _tank as Robot ptr )
         Declare Function addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr
     
         ' Internal helpers        
@@ -1233,6 +1234,21 @@ End Sub
 ' ----
 ' Methods for placing tanks on the board.
 ' ----
+sub Board.addTankToList( _tank as Robot ptr )
+    Dim reflections as integer = _tank->getReflections()
+    Dim thisIterator as MyList.Iterator ptr = new MyList.Iterator(tankList)
+    while thisIterator->hasNextObject() = Bool.True
+        dim as Robot ptr thisTank = thisIterator->getNextObject()
+        if reflections < thisTank->getReflections() then
+            tankList->addObjectBefore(thisTank,_tank)
+            delete thisIterator
+            exit sub
+        end if
+    wend
+    delete thisIterator
+    tankList->addObjectTail(_tank)    
+end sub    
+
 Function Board.addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _tankID as integer ) as Robot ptr
 	if _tile <> 0 then
 		Dim as Robot ptr newRobot = new Robot( _tankID, _tile, _direction, _areaMap, _mirrorMap )
@@ -1274,49 +1290,48 @@ End Function
 function Board.solve() as Bool
     Dim mirrorsToPlace as integer = _areaMap->getAreaCount()
     Dim possibilityMap as MirrorPlacementMap Ptr = new MirrorPlacementMap(boardWidth,boardHeight,_areaMap)
-    for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)        
-        if robots(i) <> 0 then
-            'cls
-            'drawBoardBase()
-            'drawAllMirrors()
-            'sleep
+    dim outerIterator as MyList.Iterator ptr = new MyList.Iterator(tankList)
+    while outerIterator->hasNextObject() = Bool.True        
+        dim thisTank as Robot ptr = outerIterator->getNextObject()
+        if thisTank <> 0 then
             if possibilityMap->getFixedMirrors() < mirrorsToPlace then
-                'drawTank(robots(i))        
-                'drawBeam(robots(i))
-                if robots(i)->hasPathFixed() = Bool.False then
-                    robots(i)->findAlternativePaths(possibilityMap,boardFileName)
-                    if robots(i)->hasPathFixed() = Bool.True then
-                        requiredTankList->addObjectIfNew(robots(i))                        
+                if thisTank->hasPathFixed() = Bool.False then
+                    thisTank->findAlternativePaths(possibilityMap,boardFileName)
+                    if thisTank->hasPathFixed() = Bool.True then
+                        requiredTankList->addObjectIfNew(thisTank)                        
                     end if    
                     print "fixed ";possibilityMap->getFixedMirrors();"/";mirrorsToPlace;" mirrors."
-                    if i > 0 then
-                        for j as integer = 0 to (i - 1)
-                            if robots(j) <> 0 then
-                                if robots(j)->hasPathFixed() = Bool.False then
-                                    robots(j)->findAlternativePaths(possibilityMap,boardFileName)
-                                    if robots(j)->hasPathFixed() = Bool.True then
-                                        requiredTankList->addObjectIfNew(robots(j))                        
+                    dim innerIterator as MyList.Iterator ptr = new MyList.Iterator(tankList)
+                    while innerIterator->hasNextObject()
+                        dim otherTank as Robot ptr = innerIterator->getNextObject()
+                        if otherTank <> 0 then                            
+                            if otherTank <> thisTank then
+                                if otherTank->hasPathFixed() = Bool.False then
+                                    otherTank->findAlternativePaths(possibilityMap,boardFileName)
+                                    if otherTank->hasPathFixed() = Bool.True then
+                                        requiredTankList->addObjectIfNew(otherTank)                        
                                     end if    
                                     print "fixed ";possibilityMap->getFixedMirrors();"/";mirrorsToPlace;" mirrors."
                                 end if
+                            else
+                                exit while
                             end if
-                        next j    
-                    end if    
+                        end if
+                    wend
+                    delete innerIterator
                 end if                
             else
             end if
             'sleep
         end if    
-    next i
+    wend
+    delete outerIterator
     if possibilityMap->getFixedMirrors() = mirrorsToPlace then
-        'cls
-        'drawBoardBase()
         print "Board has unique solution giving the following robots to the player:"        
         Dim robotIterator as MyList.Iterator ptr = new MyList.Iterator(requiredTankList)
         while robotIterator->hasNextObject() = Bool.True
             Dim thisRobot as Robot Ptr = robotIterator->getNextObject()
             print thisRobot->getId();
-            'drawTank(thisRobot)
         wend
         delete robotIterator
         sleep
