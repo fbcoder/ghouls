@@ -61,7 +61,7 @@ sub mainLoop ()
     ' Init Graphics mode
     screenres 640,480,32
     
-    dim b as Board Ptr = getSolvableBoard(6,4)
+    dim b as Board Ptr = getSolvableBoard(6,6)
     if b <> 0 then
         dim gb as GraphicalBoard ptr = new GraphicalBoard(b)
         if gb <> 0 then

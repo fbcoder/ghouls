@@ -651,7 +651,9 @@ Type Robot
         Declare Function getRouteDescription() as String
         
         ' Private helpers for pathFinding
-        Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
+        declare sub reachedEdge( node as PathLeaf ptr, bounces as integer )
+        declare function canReachEndTile ( node as PathLeaf ptr, bounces as integer ) as Bool
+        'Declare Function getMirrorString ( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String
         Declare Sub tryMirrorNone ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
         Declare Sub tryMirrorNESW ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
         Declare Sub tryMirrorNWSE ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
@@ -736,13 +738,13 @@ Destructor Robot()
     end if
 End Destructor
 
-Function Robot.getMirrorString( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String 
-    Dim mirrorChar as String
-    if orientation = Mirror.NE_SW then mirrorChar = "/"
-    if orientation = Mirror.NW_SE then mirrorChar = "\"
-    'return _tile->getCoordString() & mirrorChar   
-    return mirrorChar & "-->[" & directionNames(oldDir) & "->" & directionNames(newDir) & "]-->"
-End Function
+'Function Robot.getMirrorString( oldDir as Direction, newDir as Direction, orientation as Mirror ) as String 
+'    Dim mirrorChar as String
+'    if orientation = Mirror.NE_SW then mirrorChar = "/"
+'    if orientation = Mirror.NW_SE then mirrorChar = "\"
+'    'return _tile->getCoordString() & mirrorChar   
+'    return mirrorChar & "-->[" & directionNames(oldDir) & "->" & directionNames(newDir) & "]-->"
+'End Function
 
 Sub Robot.checkChild_Mirror( _mirror as Mirror, node as PathLeaf ptr, bounces as integer )
     if bounces < reflections then
@@ -807,38 +809,104 @@ sub Robot.tryMirrorNone ( node as PathLeaf ptr, bounces as integer, _tile as Til
     end if
 end sub
 
+sub Robot.reachedEdge( node as PathLeaf ptr, bounces as integer )
+    if bounces = reflections then
+        Dim parentNode as PathLeaf Ptr = node->getParent()
+        if parentNode <> 0 then
+            Dim parentTile as TileMap_.Tile Ptr = parentNode->getTile()
+            if parentTile <> 0 then
+                if parentTile = endTile then
+                    if node->getIncoming() = beamEndDirection then
+                        ' Found endtile!!
+                        ' Add succesful route.
+                        _pathTree->addSuccessRoute(node)
+                    else
+                         _pathTree->addFailedRoute(node,,"Tile is right, direction however is not.")
+                    end if    
+                end if    
+            else
+                ' Wrong again parent must have tile that is not null!
+            end if
+        else    
+            ' Something wrong!
+        end if
+    else
+        _pathTree->addFailedRoute(node,,"Reaches edge with too little reflections.")
+    end if
+end sub
+
+function Robot.canReachEndTile ( node as PathLeaf ptr, bounces as integer ) as Bool
+    dim bouncesToGo as integer = (reflections - bounces)
+    dim thisDirection as Direction = node->getIncoming()
+    dim opposite as Direction = (thisDirection + 2) mod 4
+    if bouncesToGo = 0 then
+        if beamEndDirection <> thisDirection then
+            _pathTree->addFailedRoute(node,,"Direction wrong with no mirrors left.")
+            return Bool.False
+        end if
+        dim thisTile as TileMap_.Tile ptr = node->getTile()
+        select case thisDirection
+            case Direction.North or Direction.South:
+                if thisTile->getCoord()->x <> endX then
+                    _pathTree->addFailedRoute(node,,"This route would end in the wrong column.")
+                    return Bool.False
+                end if    
+            case Direction.East or Direction.West:
+                if thisTile->getCoord()->y <> endY then
+                    _pathTree->addFailedRoute(node,,"This route would end in the wrong row.")
+                    return Bool.False
+                end if    
+        end select
+    elseif bouncesToGo = 1 then      
+        if (beamEndDirection = opposite) or (beamEndDirection = thisDirection) then
+            _pathTree->addFailedRoute(node,,"Can't reach destination edge in 1 bounce with current Direction.")
+            return Bool.False
+        end if
+        dim thisTile as TileMap_.Tile ptr = node->getTile()
+        select case thisDirection
+            case Direction.North:
+                if thisTile->getCoord()->y < endY then
+                    _pathTree->addFailedRoute(node,,"Too far North to reach endtile in 1 bounce.")
+                    return Bool.False
+                end if    
+            case Direction.East:
+                if thisTile->getCoord()->x > endX then
+                    _pathTree->addFailedRoute(node,,"Too far East to reach endtile in 1 bounce.")
+                    return Bool.False
+                end if
+            case Direction.West:
+                if thisTile->getCoord()->x < endX then
+                    _pathTree->addFailedRoute(node,,"Too far West to reach endtile in 1 bounce.")
+                    return Bool.False
+                end if
+            case Direction.South:
+                if thisTile->getCoord()->y > endY then
+                    _pathTree->addFailedRoute(node,,"Too far South to reach endtile in 1 bounce.")
+                    return Bool.False
+                end if        
+        end select
+    elseif bouncesToGo = 2 then        
+        if (beamEndDirection <> opposite) and (beamEndDirection <> thisDirection) then
+            _pathTree->addFailedRoute(node,,"Can't reach destination edge in 2 bounces with current Direction.")
+            return Bool.False
+        end if    
+    end if
+    return Bool.True
+end function
+
 Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )   
     if node <> 0 then
         Dim thisTile as TileMap_.Tile Ptr = node->getTile()
         if thisTile <> 0 then            
-            tryMirrorNESW(node,bounces,thisTile)
-            tryMirrorNWSE(node,bounces,thisTile)
-            tryMirrorNone(node,bounces,thisTile)    
+            ' try to prune early
+            if canReachEndTile(node,bounces) = Bool.True then
+                tryMirrorNESW(node,bounces,thisTile)
+                tryMirrorNWSE(node,bounces,thisTile)
+                tryMirrorNone(node,bounces,thisTile)                
+            end if
         else
             ' at edge, find out if endtile is reached.
-            if bounces = reflections then
-                Dim parentNode as PathLeaf Ptr = node->getParent()
-                if parentNode <> 0 then
-                    Dim parentTile as TileMap_.Tile Ptr = parentNode->getTile()
-                    if parentTile <> 0 then
-                        if parentTile = endTile then
-                            if node->getIncoming() = beamEndDirection then
-                                ' Found endtile!!
-                                ' Add succesful route.
-                                _pathTree->addSuccessRoute(node)
-                            else
-                                 _pathTree->addFailedRoute(node,,"Tile is right, direction however is not.")
-                            end if    
-                        end if    
-                    else
-                        ' Wrong again parent must have tile that is not null!
-                    end if
-                else    
-                    ' Something wrong!
-                end if
-            else
-                _pathTree->addFailedRoute(node,,"Reaches edge with too little reflections.")
-            end if
+            reachedEdge(node,bounces)
         end if
     else
         ' Something wrong should never receive null node.
@@ -1276,7 +1344,7 @@ Function Board.addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _ta
 		newRobot->shootBeam()
 		if newRobot->getReflections() > 0 and isEndPointOfOtherRoute = Bool.False then
 			tankPositionTaken(edge,index) = Bool.True
-			tankList->addObject(newRobot)
+			tankList->addObjectTail(newRobot)
             return newRobot
 		else
 			delete newRobot
