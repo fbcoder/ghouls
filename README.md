@@ -11,6 +11,21 @@ The player is given a tiled board devided into areas. Each area should contain e
 # Current State
 This is not an application that can be presented to end users yet. It is possible now to play a random generated puzzle but the application has no interface besides that, no menu's etc. Furthermore the pathfinding algorithm used to generate puzzles with a unique solution is somewhat 'broken'.  When trying to add quicker pruning, valid routes seem to be cut. So unique puzzles are generated that actually have multiple solutions. Of course generated puzzles should only have one unique solution.
 
+## Imlemented
+
+* Generation of puzzles (although not working correctly now)
+* Displaying generated puzzle on the screen
+* Letting the player solve the puzzle with mouse input 
+
+## TODO
+
+* Fix pathfinding
+* Fix color scheme of the tanks so they get more distinctive colors.
+* Add menu
+* Add ability to load/save puzzles
+* Generate harder puzzles (less routes of 1 reflection given)
+* Add keyboard input for puzzle solving
+
 # How to build
 Clone this repository or download everything and extract to a folder you like. When cloning this repository a directory witht he name of the repo will be created automatically.
 
