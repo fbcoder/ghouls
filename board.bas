@@ -472,6 +472,7 @@ End Function
 Function PathTree.getRouteString () as String    
     Dim routes as integer = 0
     Dim returnString as String = ""    
+    ' output succesfull routes
     if routeList <> 0 then
         returnString &= "Found " & str(routeList->getSize()) & " successful route(s)." & NEWLINE
         Dim thisRoute as MyList.ListNode ptr = routeList->getFirst()
@@ -488,8 +489,12 @@ Function PathTree.getRouteString () as String
         wend
         returnString &= NEWLINE
     else
-        returnString &= "No Routes!" 
+        print "No routes found. This should never happen!"
+        sleep
+        end
     end if
+    
+    ' output failed routes
     if debugFailedRoutes = Bool.True then
         if failList <> 0 then
             returnString &= "Found " & str(failList->getSize()) & " invalid paths." & NEWLINE
