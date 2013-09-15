@@ -18,13 +18,21 @@ This is not an application that can be presented to end users yet. It is possibl
 * Letting the player solve the puzzle with mouse input 
 
 ## TODO
+A lot of work needs to be done to get this project into a somewhat presentable state.
 
-* Fix pathfinding
+### Interface (GUI)
 * Fix color scheme of the tanks so they get more distinctive colors.
 * Add menu
+* Add keyboard input for puzzle solving
+
+### Functional
+* Fix pathfinding
 * Add ability to load/save puzzles
 * Generate harder puzzles (less routes of 1 reflection given)
-* Add keyboard input for puzzle solving
+
+### Codewise
+* Implement proper error handling in the code instead of print statements.
+* Break up board.bas into smaller files, it's a mess.
 
 # How to build
 Clone this repository or download everything and extract to a folder you like. When cloning this repository a directory witht he name of the repo will be created automatically.

@@ -1,30 +1,12 @@
 #include once "includes/list.bas"
 #include once "includes/bool.bas"
 #include once "includes/direction.bas"
-#include once "includes/mirror.bas"
 #include once "includes/newline.bas"
 #include once "tilemap.bas"
 #include once "area.bas"
 #include once "contentmap.bas"
 
-Randomize Timer
-
-dim shared directionMutations(2,3) as Direction
-
-directionMutations(Mirror.None, Direction.North) = Direction.North
-directionMutations(Mirror.None, Direction.East) = Direction.East
-directionMutations(Mirror.None, Direction.South) = Direction.South
-directionMutations(Mirror.None, Direction.West) = Direction.West
-
-directionMutations(Mirror.NE_SW, Direction.North) = Direction.East
-directionMutations(Mirror.NE_SW, Direction.East) = Direction.North
-directionMutations(Mirror.NE_SW, Direction.South) = Direction.West
-directionMutations(Mirror.NE_SW, Direction.West) = Direction.South
-
-directionMutations(Mirror.NW_SE, Direction.North) = Direction.West
-directionMutations(Mirror.NW_SE, Direction.East) = Direction.South
-directionMutations(Mirror.NW_SE, Direction.South) = Direction.East
-directionMutations(Mirror.NW_SE, Direction.West) = Direction.North 
+randomize timer
     
 '---------------------------------------------------------------------------------------
 ' MirrorPlacementMap or Possibility Map, notes which mirrors are possible for each tile
@@ -187,6 +169,9 @@ Function RouteTile.getTile() as TileMap_.Tile Ptr
     return _tile
 End Function    
 
+'--------------------------------------
+' RouteStep
+'-------------------------------------- 
 Type RouteStep
     _tile as TileMap_.Tile Ptr
     _mirror as Mirror
@@ -197,6 +182,9 @@ Destructor RouteStep()
     _tile = 0    
 End Destructor
 
+'------------------
+' FailedRoute
+'------------------
 Type FailedRoute
     private:        
     public:
@@ -633,7 +621,6 @@ End Function
 Type Robot
     private:
         _areaMap as Area_.Map Ptr
-        '_board as BoardPtr
         _mirrorMap as MirrorMap.Map Ptr
         _pathTree as PathTree Ptr
         pathFixed as Bool = Bool.False
@@ -840,11 +827,16 @@ sub Robot.reachedEdge( node as PathLeaf ptr, bounces as integer )
     end if
 end sub
 
+' ***
+' For a given node in a path it should be determined if it's still possible to
+' reach the EndTile in the right direction and the right number of bounces.
+' ***
 function Robot.canReachEndTile ( node as PathLeaf ptr, bounces as integer ) as Bool
     dim bouncesToGo as integer = (reflections - bounces)
     dim thisDirection as Direction = node->getIncoming()
     dim opposite as Direction = (thisDirection + 2) mod 4
     if bouncesToGo = 0 then
+        ' No more bounces allowed so EndTile should be reached in a straight line.
         if beamEndDirection <> thisDirection then
             _pathTree->addFailedRoute(node,,"Direction wrong with no mirrors left.")
             return Bool.False
