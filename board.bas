@@ -26,7 +26,7 @@ Type MirrorPlacementMap
         Declare Function getPossibilityString ( _tile as TileMap_.Tile Ptr ) as String
         Declare Function getFixedMirrors() as Integer 
         Declare Function toString() as String
-End Type    
+End Type
 
 Constructor MirrorPlacementMap ( w as integer, h as integer, __areaMap as Area_.Map Ptr )
     _areaMap = __areaMap
@@ -276,9 +276,12 @@ Function PathLeaf.getTile() as TileMap_.Tile Ptr
     return _tile
 End Function
 
-' ---------
+' ***
 ' Path Tree
-' ---------
+'
+' A path tree consists of all routes tried by the board generating algorithm.
+' Eacht step in that route is as PathLead object.
+' ***
 Type PathTree
     private:
         ' first Leaf in the tree
@@ -305,6 +308,9 @@ Type PathTree
         Declare Function hasUniqueSuccessRoute() as Bool
 End Type    
 
+' ***
+' The constructur takes a tile and direction as the root of the tree.
+' ***
 Constructor PathTree( _tile as TileMap_.Tile Ptr, _direction as Direction )
     if _tile <> 0 then
         root = new PathLeaf(_tile,Mirror.None,0,_direction)
@@ -368,7 +374,7 @@ End Sub
 
 Function PathTree.getRoot() as PathLeaf Ptr
     return root
-End Function    
+End Function
 
 Function PathTree.findRouteTile( tileToFind as TileMap_.Tile Ptr ) as RouteTile Ptr
     if tileList <> 0 then
@@ -457,9 +463,9 @@ Function PathTree.printRoute ( listNode as MyList.ListNode Ptr ) as String
     return returnString
 End Function
 
-Function PathTree.getRouteString () as String    
+Function PathTree.getRouteString () as String
     Dim routes as integer = 0
-    Dim returnString as String = ""    
+    Dim returnString as String = ""
     ' output succesfull routes
     if routeList <> 0 then
         returnString &= "Found " & str(routeList->getSize()) & " successful route(s)." & NEWLINE
@@ -468,7 +474,7 @@ Function PathTree.getRouteString () as String
             Dim _route as MyList.List ptr = thisRoute->getObject()
             if _route <> 0 then
                 routes += 1
-                returnString &= "****" & NEWLINE              
+                returnString &= "****" & NEWLINE
                 returnString &= "Route " & str(routes) & NEWLINE
                 returnString &= "****" & NEWLINE
                 returnString &= printRoute(_route) & "E" & NEWLINE
@@ -515,7 +521,7 @@ Sub PathTree.addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.U
         end if    
         Dim routeList as myList.List Ptr = getRouteList(leaf)
         failList->addObject(new FailedRoute(failMsg,routeList))
-    end if    
+    end if
 End Sub
 
 ' Append the routes to the board file.
@@ -524,7 +530,7 @@ Sub PathTree.printRoutesToFile ( fileName as String )
         open fileName for append as #1
         print #1, getRouteString
         close #1
-    else    
+    else
         print "Cannot create file with empty name."
         sleep
         end
@@ -998,6 +1004,9 @@ Sub Robot.checkChild_NoMirror( node as PathLeaf ptr, bounces as integer )
     end if
 End Sub
 
+' ***
+' A beam can 'reuse' a mirror already used in the same route or cross a beam. But it is not allowed to block ' a beam or change the mirror.
+' ***
 Function Robot.canUseTileInRoute ( node as PathLeaf Ptr, mirrorToPlace as Mirror ) as Bool
     Dim thisIterator as PathTreeIterator Ptr = new PathTreeIterator(node)
     while thisIterator->hasParent() = Bool.True
@@ -1444,7 +1453,3 @@ end function
 '-----------------
 ' End ** Board **
 '-----------------
-
-'------------------------
-' Init Screen and Board.
-'------------------------
