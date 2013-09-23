@@ -18,6 +18,9 @@ Type MirrorPlacementMap
         Declare Function toString() as String
 End Type
 
+' ***
+' Initialize the map with all tiles marked as possible for each type of mirror.
+' ***
 Constructor MirrorPlacementMap ( w as integer, h as integer, __areaMap as Area_.Map Ptr )
     _areaMap = __areaMap
     _height = h
@@ -28,7 +31,7 @@ Constructor MirrorPlacementMap ( w as integer, h as integer, __areaMap as Area_.
                 map(j,i,h) = Bool.True
             next h
         next j
-    next i    
+    next i
 End Constructor
 
 Sub MirrorPlacementMap.removePossibleMirror ( _tile as TileMap_.Tile Ptr, _mirror as Mirror )
@@ -40,9 +43,9 @@ Sub MirrorPlacementMap.removePossibleMirror ( _tile as TileMap_.Tile Ptr, _mirro
             if map(_tile->getCoord()->x,_tile->getCoord()->y,i) = Bool.True then
                 onlyMirrorLeft = i
                 remaining += 1
-            end if            
-        next i    
-        if remaining = 1 then           
+            end if
+        next i
+        if remaining = 1 then
            if onlyMirrorLeft <> Mirror.None then
                print "fixed "; mirrorText(onlyMirrorLeft); " on tile "; _tile->getCoordString()
                fixedMirrors += 1
@@ -52,8 +55,8 @@ Sub MirrorPlacementMap.removePossibleMirror ( _tile as TileMap_.Tile Ptr, _mirro
                Dim returnValue as Bool
                returnValue = _areaMap->getArea(_tile)->markFixed(_tile,Mirror.None)
            end if
-        end if    
-    else        
+        end if
+    else
     end if
 End Sub
 
@@ -70,8 +73,8 @@ Function MirrorPlacementMap.getPossibilityString ( _tile as TileMap_.Tile Ptr ) 
     for i as integer = 0 to 2
         if map(_tile->getCoord()->x,_tile->getCoord()->y,i) = Bool.True then
             returnString &=mirrorText(i)
-        end if    
-    next i    
+        end if
+    next i
     returnString & = "]"
     return returnString
 End Function
@@ -106,8 +109,8 @@ Function MirrorPlacementMap.toString () as String
             thisContentMap->setCell(thisCoord,getShortString(j,i))
             delete thisCoord
         next j
-    next i    
-    Dim as String returnString = _areaMap->toString(thisContentMap)    
+    next i
+    Dim as String returnString = _areaMap->toString(thisContentMap)
     delete thisContentMap
     return returnString
 End Function

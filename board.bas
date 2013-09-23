@@ -618,7 +618,7 @@ type Board
     public:
         Declare Constructor( _boardWidth as integer, _boardHeight as integer )
         Declare Destructor()
-        declare function solve() as Bool                 
+        declare function solve() as Bool
 
         ' getters for the outside world
         Declare Function getBoardFileName() as String
@@ -627,7 +627,7 @@ type Board
         declare function getAreaMap () as Area_.Map ptr
         declare function getTileMap () as TileMap_.TileMap ptr
         declare function getWidth () as integer
-        declare function getHeight () as integer        
+        declare function getHeight () as integer
 end type
 
 Constructor Board( _boardWidth as integer, _boardHeight as integer )
@@ -654,11 +654,11 @@ Destructor Board
     ' Delete all objects Board created with the new statement
     if _tileMap <> 0 then
         delete _tileMap
-    end if    
-    for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)        
+    end if
+    for i as integer = 0 to ( boardWidth * 2 + boardHeight * 2 - 1)
         if robots(i) <> 0 then
             delete robots(i)
-        end if            
+        end if
     next i
     delete tankList
     delete requiredTankList
@@ -749,6 +749,11 @@ Function Board.addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _ta
 	return 0
 End Function
 
+' ***
+' Iterates over the list of tanks and let them generate routes to reach their
+' destination.
+' !!NOTE!! THIS FUNCTION SHOULD BE REWRITTEN
+' ***
 function Board.solve() as Bool
     Dim mirrorsToPlace as integer = _areaMap->getAreaCount()
     Dim possibilityMap as MirrorPlacementMap Ptr = new MirrorPlacementMap(boardWidth,boardHeight,_areaMap)
@@ -829,7 +834,7 @@ end function
 
 function Board.getTileMap () as TileMap_.TileMap ptr
     return _tileMap
-end function    
+end function
 
 function Board.getWidth () as integer
     return boardWidth
@@ -837,7 +842,7 @@ end function
 
 function Board.getHeight () as integer
     return boardHeight
-end function    
+end function
 '-----------------
 ' End ** Board **
 '-----------------
