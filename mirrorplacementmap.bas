@@ -1,10 +1,11 @@
+#include once "includes/settings.bas"
 ' ***
 ' MirrorPlacementMap or Possibility Map, notes which mirrors are possible for each tile
 ' ***
 Type MirrorPlacementMap
     private:
         _areaMap as Area_.Map Ptr
-        map(TileMap_.MAX_MAPWIDTH,TileMap_.MAX_MAPHEIGHT,3) as Bool
+        map(Settings.maxBoardWidth,Settings.maxBoardHeight,3) as Bool
         _width as integer
         _height as integer
         fixedMirrors as integer = 0

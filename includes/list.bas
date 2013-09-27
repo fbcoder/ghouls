@@ -87,10 +87,10 @@ Type List
         declare sub addObjectBefore ( objectBefore as any ptr, objectToAdd as any ptr )
         Declare Sub addNode(nodePtr as ListNode ptr)
         Declare Sub debug ()
-        Declare Function getSize() as integer
-        Declare Function getFirst() as ListNode ptr
-        Declare Function containsObject( objectPtr as Any Ptr ) as Bool
-        Declare Sub addObjectIfNew( objectPtr as Any Ptr )
+        Declare Function getSize () as integer
+        Declare Function getFirst () as ListNode ptr
+        Declare Function containsObject ( objectPtr as Any Ptr ) as Bool
+        Declare Sub addObjectIfNew ( objectPtr as Any Ptr )
         Declare Destructor
 End Type
 

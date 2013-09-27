@@ -1,10 +1,11 @@
+#include once "includes/settings.bas"
 #include once "includes/bool.bas"
 #include once "includes/direction.bas"
 
 NameSpace TileMap_
 
-Const MAX_MAPWIDTH = 6
-Const MAX_MAPHEIGHT = 6
+' Const MAX_MAPWIDTH = 6
+' Const MAX_MAPHEIGHT = 6
 
 Type Coord
     x as integer
@@ -100,7 +101,7 @@ Type TileMap
     private:
         mapHeight as Integer
         mapWidth as Integer
-        map(MAX_MAPWIDTH,MAX_MAPHEIGHT) as Tile Ptr
+        map(Settings.maxBoardWidth,Settings.maxBoardHeight) as Tile Ptr
     public:
         Declare Constructor( _width as Integer, _height as Integer )
         Declare Destructor()

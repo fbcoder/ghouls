@@ -1,3 +1,4 @@
+#include once "includes/settings.bas"
 #include once "includes/mirror.bas"
 #include once "tilemap.bas"
 
@@ -5,7 +6,7 @@ namespace MirrorMap
     type Map
         private:
             _tileMap as TileMap_.TileMap ptr            
-            _map(TileMap_.MAX_MAPWIDTH,TileMap_.MAX_MAPHEIGHT) as Mirror
+            _map(Settings.maxBoardWidth,Settings.maxBoardHeight) as Mirror
             _width as integer
             _height as integer
         public:

@@ -631,22 +631,22 @@ type Board
 end type
 
 Constructor Board( _boardWidth as integer, _boardHeight as integer )
-	if _boardWidth <= 6 and _boardHeight <= 6 and _boardWidth > 0 and _boardHeight > 0 then		
-        boardWidth = _boardWidth
-		boardHeight = _boardHeight		        
-        ' Generate maps and populate
-        createMaps()
-        
-        boardFileName = "boards/board_" & date & "_" & str(int(timer)) & ".txt"
-        printBoardToFile()
+    if _boardWidth <= 6 and _boardHeight <= 6 and _boardWidth > 0 and _boardHeight > 0 then		
+    boardWidth = _boardWidth
+        boardHeight = _boardHeight
+    ' Generate maps and populate
+    createMaps()
+    
+    boardFileName = Settings.boardsFolder & "/board_" & date & "_" & str(int(timer)) & ".txt"
+    printBoardToFile()
 
-        tankList = new MyList.List ()
-        requiredTankList = new MyList.List ()
-        placeTanks()                
-	else
-		print "Error: Board dimensions must be larger than 0 and smaller than 7"
-        sleep
-        end
+    tankList = new MyList.List ()
+    requiredTankList = new MyList.List ()
+    placeTanks()
+    else
+        print "Error: Board dimensions must be larger than 0 and smaller than 7"
+    sleep
+    end
 	end if
 End Constructor
 
@@ -688,7 +688,7 @@ Sub Board.placeTanks()
 End Sub    
 
 Sub Board.createMaps()
-	_tilemap = new TileMap_.TileMap(boardWidth,boardHeight)
+    _tilemap = new TileMap_.TileMap(boardWidth,boardHeight)
     _mirrorMap = new MirrorMap.Map(boardWidth,boardHeight,_tileMap)
     _areaMap = new Area_.Map(boardWidth,boardHeight,_tileMap,_mirrorMap)
 End Sub

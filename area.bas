@@ -1,3 +1,4 @@
+#include once "includes/settings.bas"
 #include once "includes/list.bas"
 #include once "includes/mirror.bas"
 #include once "includes/newline.bas"
@@ -235,7 +236,7 @@ Type Map
         _mirrorMap as MirrorMap.Map Ptr
         playersMirrorMap as MirrorMap.Map Ptr
         areaList as MyList.List
-        _map(TileMap_.MAX_MAPWIDTH,TileMap_.MAX_MAPHEIGHT) as Area Ptr
+        _map(Settings.maxBoardWidth,Settings.maxBoardHeight) as Area Ptr
         _width as integer
         _height as integer
         Declare Sub buildMap()
