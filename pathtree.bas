@@ -460,7 +460,7 @@ Function PathTree.hasUniqueSuccessRoute() as Bool
         if routeList->getSize() = 1 then
             return Bool.True
         end if
-    end if    
+    end if
     return bool.False
 End Function
 

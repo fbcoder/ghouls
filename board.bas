@@ -573,10 +573,10 @@ Sub Robot.findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr, fileN
             print #1, getRouteDescription()
         close #1
         _pathTree->printRoutesToFile(fileName)
-        _pathTree->writeSuccessRoutesToMap(_mirrorPlacementMap,fileName)
         if _pathTree->hasUniqueSuccessRoute() = Bool.True then
+            _pathTree->writeSuccessRoutesToMap(_mirrorPlacementMap,fileName)
             pathFixed = Bool.True
-        end if    
+        end if
         
         delete _pathTree
         _pathTree = 0

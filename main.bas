@@ -63,7 +63,7 @@ sub mainLoop ()
     ' Init Graphics mode
     screenres 640,480,32
     ' Ask for a 6 x 6 solvable board to be generated
-    dim b as Board Ptr = getSolvableBoard(6,6)
+    dim b as Board Ptr = getSolvableBoard(3,3)
     if b <> 0 then
         dim gb as GraphicalBoard ptr = new GraphicalBoard(b)
         if gb <> 0 then
