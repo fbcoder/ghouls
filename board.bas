@@ -766,7 +766,7 @@ function Board.solve() as Bool
                     thisTank->findAlternativePaths(possibilityMap,boardFileName)
                     if thisTank->hasPathFixed() = Bool.True then
                         requiredTankList->addObjectIfNew(thisTank)
-                    end if    
+                    end if
                     print "fixed ";possibilityMap->getFixedMirrors();"/";mirrorsToPlace;" mirrors."
                     dim innerIterator as MyList.Iterator ptr = new MyList.Iterator(tankList)
                     while innerIterator->hasNextObject()
