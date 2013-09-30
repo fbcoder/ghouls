@@ -1,4 +1,5 @@
-#include once "mirrorplacementmap.bas"
+#Include Once "includes/error.bas"
+#Include Once "mirrorplacementmap.bas"
 
 ' ***
 ' RouteTile - For tiles used in a route.
@@ -171,9 +172,8 @@ Type PathTree
         Declare Function getRouteList ( leaf as PathLeaf Ptr ) as MyList.List Ptr
         Declare Function printRoute ( listNode as MyList.ListNode Ptr ) as String
         Declare Function printRoute ( _list as MyList.List Ptr ) as String
-        Declare Function findRouteTile( tileToFind as TileMap_.Tile Ptr ) as RouteTile Ptr
-        Declare Sub addToTileList( _route as MyList.List Ptr )
         Declare Sub deleteLeaf( leaf as PathLeaf Ptr )
+        Declare Function routeStillPossible( _route as MyList.List ptr, _mirrorMap as MirrorPlacementMap ptr ) as Bool
     public:
         Declare Constructor( _tile as TileMap_.Tile Ptr, _direction as Direction )
         Declare Destructor()
@@ -184,6 +184,7 @@ Type PathTree
         Declare Sub printRoutesToFile ( fileName as String )
         Declare Sub writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr, fileName as String = "" )
         Declare Function hasUniqueSuccessRoute() as Bool
+        Declare Sub recheckSuccessRoutes(  _mirrorMap as MirrorPlacementMap ptr )
 End Type    
 
 ' ***
@@ -254,44 +255,6 @@ Function PathTree.getRoot() as PathLeaf Ptr
     return root
 End Function
 
-Function PathTree.findRouteTile( tileToFind as TileMap_.Tile Ptr ) as RouteTile Ptr
-    if tileList <> 0 then
-        Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(tileList)
-        while thisIterator->hasNextObject() = Bool.True
-            Dim thisRouteTile as RouteTile Ptr = thisIterator->getNextObject()
-            if thisRouteTile <> 0 then
-                'print "found RouteTile @";
-                'print thisRouteTile->_tile
-                if thisRouteTile->getTile() = tileToFind then                    
-                    return thisRouteTile                    
-                end if    
-            end if 
-        wend
-        delete thisIterator
-    end if
-    return 0
-End Function    
-    
-Sub PathTree.addToTileList( _route as MyList.List Ptr )
-    if _route <> 0 then
-        Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(_route)
-        while thisIterator->hasNextObject = Bool.True
-            Dim thisStep as RouteStep Ptr = thisIterator->getNextObject()
-            if thisStep <> 0 then
-                Dim thisRouteTile as RouteTile Ptr = findRouteTile(thisStep->_tile)
-                if thisRouteTile <> 0 then                    
-                    thisRouteTile->addMirror(thisStep->_mirror)
-                else
-                    Dim newRouteTile as RouteTile Ptr = new RouteTile(thisStep->_tile,thisStep->_mirror)
-                    'print "adding RouteTile"
-                    tileList->addObject(newRouteTile)
-                end if    
-            end if
-        wend 
-        delete thisIterator
-    end if         
-End Sub
-
 Function PathTree.getRouteList(leaf as PathLeaf Ptr) as MyList.List Ptr
     Dim thisRoute as MyList.List Ptr = new MyList.List()
     Dim thisLeaf as PathLeaf Ptr = leaf
@@ -305,12 +268,13 @@ Function PathTree.getRouteList(leaf as PathLeaf Ptr) as MyList.List Ptr
 End Function
 
 Sub PathTree.addSuccessRoute (leaf as PathLeaf Ptr)    
+    ' Print "adding success route"
     if routeList = 0 then
         routeList = new MyList.List()
-        tileList = new MyList.List()
+        'tileList = new MyList.List()
     end if
     Dim thisRoute as MyList.List Ptr = getRouteList(leaf)
-    addToTileList(thisRoute)
+    'addToTileList(thisRoute)
     routeList->addObject(thisRoute)
 End Sub    
 
@@ -388,6 +352,7 @@ Function PathTree.getRouteString () as String
 End Function
 
 Sub PathTree.addFailedRoute ( leaf as PathLeaf Ptr, _mirror as Mirror = Mirror.Undefined, failMsg as String = "" )
+    ' Print "adding failed route"
     if debugFailedRoutes = Bool.True then
         if failList = 0 then
             failList = new MyList.List()
@@ -416,7 +381,28 @@ Sub PathTree.printRoutesToFile ( fileName as String )
 End Sub    
 
 Sub PathTree.writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr, fileName as String = "" )
-    if tileList <> 0 then
+    if routeList <> 0 Then
+    	If routeList->getSize() = 1 Then
+			Dim node As MyList.ListNode Ptr = routeList->getFirst()
+			Dim _route As MyList.List Ptr = node->GetObject()
+			If _route <> 0 Then
+				Dim iter As MyList.Iterator Ptr = New MyList.Iterator(_route)
+				While iter->hasNextObject() = Bool.True
+					Dim _step As RouteStep Ptr = iter->getNextObject()
+					For i As Integer = 0 To 2
+						If _step->_mirror <> i Then
+							_mirrorMap->removePossibleMirror(_step->_tile,i)
+							print "elminated ["; mirrorText(i); "] on tile "; _step->_tile->getCoordString()
+						EndIf 
+					Next i
+				Wend
+				Delete iter
+			EndIf
+    	Else
+    		ErrorMessage.print("Only a unique solution for a tank gets written to the map.")    		
+    	EndIf
+        
+        /'
         Dim thisIterator as MyList.Iterator Ptr = new MyList.Iterator(tileList)
         while thisIterator->hasNextObject() = Bool.True
             Dim thisRouteTile as RouteTile ptr = thisIterator->getNextObject()
@@ -447,15 +433,53 @@ Sub PathTree.writeSuccessRoutesToMap( _mirrorMap as MirrorPlacementMap Ptr, file
             end if    
         wend    
         delete thisIterator
+        '/
     end if
     if fileName <> "" then
         open fileName for append as #1
             print #1, _mirrorMap->toString()
         close #1
     end if
-End Sub
+End sub
 
-Function PathTree.hasUniqueSuccessRoute() as Bool
+function pathTree.routeStillPossible( _route as MyList.List ptr, _mirrorMap as MirrorPlacementMap ptr ) as Bool
+	dim iter as MyList.Iterator ptr = new MyList.Iterator(_route)
+	while iter->hasNextObject() = Bool.True
+		dim _routeStep as RouteStep ptr = iter->getNextObject()
+		if _routeStep <> 0 then
+			if _mirrorMap->canPlaceMirror(_routeStep->_tile,_routeStep->_mirror) = Bool.False then
+				delete iter
+				return Bool.False				
+			endif
+		endif
+	wend
+	delete iter
+	return Bool.True
+end function
+
+sub pathTree.recheckSuccessRoutes( _mirrorMap as MirrorPlacementMap ptr )
+   if routeList <> 0 then
+        Dim thisRoute as MyList.ListNode ptr = routeList->getFirst()
+        while thisRoute <> 0
+            Dim _route as MyList.List ptr = thisRoute->getObject()
+            if _route <> 0 then
+                if routeStillPossible( _route, _mirrorMap ) = Bool.False then
+                	routeList->removeObject(_route)
+                	Print "Eliminated route : ";printRoute(_route)
+                	Delete _route
+                	Exit While
+                end if
+            end if
+            thisRoute = thisRoute->getNext()
+        Wend
+   else
+		print "No routes to recheck, should not happen!"
+		sleep
+		end
+	end if
+end sub
+
+Function pathtree.hasUniqueSuccessRoute() as Bool
     if routeList <> 0 then
         if routeList->getSize() = 1 then
             return Bool.True

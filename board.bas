@@ -66,7 +66,8 @@ Type Robot
         Declare Function getStartY() as Integer
         
         ' Public related to pathfinding                
-        Declare Sub findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr, fileName as String )        
+        Declare Sub recheckPaths( _mirrorPlacementMap As MirrorPlacementMap Ptr, fileName as String )
+        Declare Sub findAlternativePaths ( _mirrorPlacementMap as MirrorPlacementMap Ptr, fileName as String )      
         Declare Function hasPathFixed() as Bool
 End Type
 
@@ -157,6 +158,7 @@ Sub Robot.checkChild_Mirror( _mirror as Mirror, node as PathLeaf ptr, bounces as
 End Sub
 
 sub Robot.tryMirrorNESW ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
+    'Print "tryMirrorNESW"
     if _mirrorPlacementMap->canPlaceMirror(_tile,Mirror.NE_SW) = Bool.True then
         if _areaMap->getArea(_tile)->canPlace(_tile,Mirror.NE_SW) = Bool.True then
             checkChild_Mirror(Mirror.NE_SW,node,bounces)
@@ -170,6 +172,7 @@ sub Robot.tryMirrorNESW ( node as PathLeaf ptr, bounces as integer, _tile as Til
 end sub
 
 sub Robot.tryMirrorNWSE ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
+    'Print "tryMirrorNWSE"
     if _mirrorPlacementMap->canPlaceMirror(_tile,Mirror.NW_SE) = Bool.True then                
         if _areaMap->getArea(_tile)->canPlace(_tile,Mirror.NW_SE) = Bool.True then
             checkChild_Mirror(Mirror.NW_SE,node,bounces)
@@ -180,9 +183,10 @@ sub Robot.tryMirrorNWSE ( node as PathLeaf ptr, bounces as integer, _tile as Til
         Dim failMsg as String = "Mirror placement invalidated by MirrorPlacementMap. " & _mirrorPlacementMap->getPossibilityString(_tile)
         _pathTree->addFailedRoute(node,Mirror.NW_SE,failMsg)                
     end if
-end sub    
+end sub
     
 sub Robot.tryMirrorNone ( node as PathLeaf ptr, bounces as integer, _tile as TileMap_.Tile ptr )
+    'Print "tryMirrorNone"
     if _mirrorPlacementMap->canPlaceMirror(_tile,Mirror.None) = Bool.True then                
         if _areaMap->getArea(_tile)->canPlace(_tile,Mirror.None) = Bool.True then
             checkChild_NoMirror(node,bounces)
@@ -196,6 +200,7 @@ sub Robot.tryMirrorNone ( node as PathLeaf ptr, bounces as integer, _tile as Til
 end sub
 
 sub Robot.reachedEdge( node as PathLeaf ptr, bounces as integer )
+    'Print "reachedEge"
     if bounces = reflections then
         Dim parentNode as PathLeaf Ptr = node->getParent()
         if parentNode <> 0 then
@@ -226,6 +231,7 @@ end sub
 ' reach the EndTile in the right direction and the right number of bounces.
 ' ***
 function Robot.canReachEndTile ( node as PathLeaf ptr, bounces as integer ) as Bool
+    'Print "canReachEndTile"
     dim bouncesToGo as integer = (reflections - bounces)
     dim thisDirection as Direction = node->getIncoming()
     dim opposite as Direction = (thisDirection + 2) mod 4
@@ -286,6 +292,7 @@ function Robot.canReachEndTile ( node as PathLeaf ptr, bounces as integer ) as B
 end function
 
 Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )   
+    'Print "trying to find next mirror"
     if node <> 0 then
         Dim thisTile as TileMap_.Tile Ptr = node->getTile()
         if thisTile <> 0 then            
@@ -296,10 +303,12 @@ Sub Robot.findNextMirror( node as PathLeaf ptr, bounces as integer )
                 tryMirrorNone(node,bounces,thisTile)                
             end if
         else
+            'Print "reached edge"
             ' at edge, find out if endtile is reached.
             reachedEdge(node,bounces)
         end if
-    else
+    Else
+    	Print "Must have a node to find next mirror."
         ' Something wrong should never receive null node.
     end if
 End Sub    
@@ -509,6 +518,10 @@ Sub Robot.addToPath( _tile as TileMap_.Tile Ptr, newDir as Direction, currentDir
     end if
 End Sub
 
+/'
+	Robot.shootBeam() - Function to determine the endTile and the number of reflections.
+	Used for pathfinding later to verify if the 
+'/
 Sub Robot.shootBeam()
     reflections = 0
     Dim currentTile as TileMap_.Tile Ptr = startTile
@@ -557,16 +570,28 @@ Sub Robot.shootBeam()
     'sleep
 End Sub
 
-Sub Robot.findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr, fileName as String )
+Sub Robot.recheckPaths( _mirrorPlacementMap As MirrorPlacementMap Ptr, fileName as String )
+	If _pathTree <> 0 Then
+		_pathTree->recheckSuccessRoutes(_mirrorPlacementMap)
+		if _pathTree->hasUniqueSuccessRoute() = Bool.True then
+            _pathTree->writeSuccessRoutesToMap(_mirrorPlacementMap,fileName)
+            pathFixed = Bool.True
+		end If
+	EndIf
+End Sub
+
+Sub Robot.findAlternativePaths ( __mirrorPlacementMap as MirrorPlacementMap Ptr, fileName as String )
     'print getRouteDescription()
     'followLine (startTile, beamStartDirection, 0, 0, "")
     '@TODO: fix and add findNextMirror here!
-    if possibilityMap <> 0 then 
-        _mirrorPlacementMap = possibilityMap
+    _mirrorPlacementMap = __mirrorPlacementMap
+    if _mirrorPlacementMap <> 0 then 
         if _pathTree = 0 then
             _pathTree = new PathTree(startTile,beamStartDirection)
         end if
+        Print "finding next mirror"
         findNextMirror( _pathTree->getRoot(), 0 )
+        Print "done"
         'print _pathTree->getRouteString()
         'Dim fileName as String = "routes_for_tank_" & str(id) & ".txt"    
         open fileName for append as #1
@@ -578,8 +603,8 @@ Sub Robot.findAlternativePaths ( possibilityMap as MirrorPlacementMap Ptr, fileN
             pathFixed = Bool.True
         end if
         
-        delete _pathTree
-        _pathTree = 0
+        'delete _pathTree
+        '_pathTree = 0
     else
         print "Error: can't start pathfinding with null mirrormap!"
         sleep
@@ -696,6 +721,10 @@ End Sub
 ' ----
 ' Methods for placing tanks on the board.
 ' ----
+
+/'
+	Function to add tanks to the list with the greatest number of reflections first.
+'/
 sub Board.addTankToList( _tank as Robot ptr )
     Dim reflections as integer = _tank->getReflections()
     Dim thisIterator as MyList.Iterator ptr = new MyList.Iterator(tankList)
@@ -749,14 +778,52 @@ Function Board.addTank( _tile as TileMap_.Tile Ptr, _direction as Direction, _ta
 	return 0
 End Function
 
-' ***
-' Iterates over the list of tanks and let them generate routes to reach their
-' destination.
-' !!NOTE!! THIS FUNCTION SHOULD BE REWRITTEN
-' ***
+/'
+	Iterates over the list of tanks and let them generate routes to reach their
+	destination.
+	!!NOTE!! THIS FUNCTION SHOULD BE REWRITTEN
+'/
 function Board.solve() as Bool
     Dim mirrorsToPlace as integer = _areaMap->getAreaCount()
     Dim possibilityMap as MirrorPlacementMap Ptr = new MirrorPlacementMap(boardWidth,boardHeight,_areaMap)
+    
+    Dim maxRobots As Integer = boardWidth * 2 + boardHeight * 2 - 1
+    Print "Start solving."
+    for i as integer = 0 to maxRobots
+    	Dim thisTank As Robot Ptr = robots(i)
+        if thisTank <> 0 Then
+        	Print "Find possible paths for tank ";i
+        	thisTank->findAlternativePaths(possibilityMap,boardFileName)
+        	Print "done."
+        	If thisTank->hasPathFixed() = Bool.True Then
+        		requiredTankList->addObjectIfNew(thisTank)
+        		If i > 0 Then
+        			For j As Integer = 0 To (i - 1)
+        				Dim otherTank As Robot Ptr = robots(j)
+        				If otherTank <> 0 Then
+	        				If otherTank->hasPathFixed() = Bool.False Then
+	        					Print "Recheck paths for tank ";j
+	        					otherTank->recheckPaths(possibilityMap,boardFileName)
+	        					If otherTank->hasPathFixed() = Bool.True Then
+	        						requiredTankList->addObjectIfNew(otherTank)
+	        					EndIf
+	        					print "fixed ";possibilityMap->getFixedMirrors();"/";mirrorsToPlace;" mirrors."
+	        				EndIf
+	        				If possibilityMap->getFixedMirrors() = mirrorsToPlace Then
+	        					Exit For
+	        				EndIf
+        				End If
+        			Next j
+        		EndIf        		        		
+        	EndIf
+        	print "fixed ";possibilityMap->getFixedMirrors();"/";mirrorsToPlace;" mirrors."
+        	If possibilityMap->getFixedMirrors() = mirrorsToPlace Then
+        		Exit For
+        	EndIf
+        end if
+    next i
+    
+    /'
     dim outerIterator as MyList.Iterator ptr = new MyList.Iterator(tankList)
     while outerIterator->hasNextObject() = Bool.True        
         dim thisTank as Robot ptr = outerIterator->getNextObject()
@@ -793,6 +860,8 @@ function Board.solve() as Bool
         end if
     wend
     delete outerIterator
+    '/
+    
     if possibilityMap->getFixedMirrors() = mirrorsToPlace then
         print "Board has unique solution giving the following robots to the player:"        
         Dim robotIterator as MyList.Iterator ptr = new MyList.Iterator(requiredTankList)
@@ -808,7 +877,7 @@ function Board.solve() as Bool
         sleep
     end if
     return Bool.False
-end function
+end Function
 
 Sub Board.printBoardToFile()
     open boardFileName for output as #1

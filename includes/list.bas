@@ -91,6 +91,7 @@ Type List
         Declare Function getFirst () as ListNode ptr
         Declare Function containsObject ( objectPtr as Any Ptr ) as Bool
         Declare Sub addObjectIfNew ( objectPtr as Any Ptr )
+        Declare Sub removeObject( objectPtr as Any Ptr )
         Declare Destructor
 End Type
 
@@ -214,7 +215,39 @@ Sub List.addObjectIfNew( objectPtr as Any Ptr )
     if containsObject(objectPtr) = Bool.False then
         addObject(objectPtr)
     end if    
-End Sub    
+End Sub
+
+Sub List.removeObject( objectPtr as Any Ptr )
+	dim removed as Bool = Bool.False
+	dim currentNode as ListNode ptr = firstNode
+	while currentNode <> 0
+		if currentNode->getObject() = objectPtr then
+			Print "removed"
+			dim prevNode as ListNode ptr = currentNode->getPrev()
+			dim nextNode as ListNode ptr = currentNode->getNext()
+			if prevNode <> 0 then
+				prevNode->setNext(nextNode)
+			Else
+				' firstNode must be adjusted
+				firstNode = nextNode
+			end if
+			if nextNode <> 0 then
+				nextNode->setPrev(prevNode)
+			Else
+				' lastNode must be adjusted
+				lastNode = prevNode
+			end if
+			delete currentNode
+			removed = Bool.True
+			size -= 1
+			exit while
+		end if
+		currentNode = currentNode->getNext()
+	wend
+	if removed = Bool.False then
+		Print "Could not find object in this list and therefore did not delete it."
+	end if
+End Sub
 
 Sub List.debug()
     Print "-- List --"
