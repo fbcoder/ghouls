@@ -222,7 +222,6 @@ Sub List.removeObject( objectPtr as Any Ptr )
 	dim currentNode as ListNode ptr = firstNode
 	while currentNode <> 0
 		if currentNode->getObject() = objectPtr then
-			Print "removed"
 			dim prevNode as ListNode ptr = currentNode->getPrev()
 			dim nextNode as ListNode ptr = currentNode->getNext()
 			if prevNode <> 0 then
