@@ -1,5 +1,5 @@
 # About
-Tanks and Mirrors is a simple 2D-puzzle game written in FreeBASIC. It's similar to the minigame "Ghouls and Guards" (hence the the repo title) from the Nintendo 3DS game Professor Layton.
+Tanks and Mirrors is a simple 2D-puzzle game written in FreeBASIC. It's similar to the minigame "Ghouls and Guards" (hence the the repo title) from the Nintendo 3DS game Professor Layton and the Miracle Mask.
 
 # Rules of play
 The player is given a tiled board devided into areas. Each area should contain extacly one mirror. Tanks are placed on the edges and need to shoot a beam to another tile or edge on the board with a given number of reflections. All tanks will require at least one reflection. The players task is to place the diagonal mirrors ("/" or "\") and satisfy the following conditions:
@@ -52,4 +52,8 @@ for Ubuntu 12.10 there is an extra parameter that has to be set due to a bug:
 * change compile line to: fbc -l stdc++ main.bas
 
 # About FreeBASIC
-FreeBASIC is a programming language available for multiple platforms. It's largely backwards compatible with QBASIC but adds many features of C(++) to the mix. FreeBASIC is free as in beer and freedom. Get it here: http://www.freebasic.net/
+> "FreeBASIC is a free/open source (GPL), 32-bit BASIC compiler for Microsoft Windows, DOS and Linux."
+
+> "FreeBASIC fully supports the use of C libraries and has partial C++ library support. This lets programmers use and create libraries for C and many other languages. It supports a C style preprocessor, capable of multiline macros, conditional compiling and file inclusion."
+
+http://www.freebasic.net/
