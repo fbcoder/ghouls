@@ -166,3 +166,7 @@ pip-log.txt
 *.exe
 *.txt
 boards/
+
+# KDE
+.directory
+*.kate-swp
